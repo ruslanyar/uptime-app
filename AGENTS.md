@@ -10,6 +10,8 @@ This repository contains two independent scaffolds for an uptime monitoring serv
 
 ## Validation & Documentation
 
+Store implementation plans separately in `backend/docs/plan/` and `frontend/docs/plan/`, according to the project they concern.
+
 Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document any new test tooling, commands, or configuration in the relevant project README.
 
 ## Commit & Pull Request Guidelines
