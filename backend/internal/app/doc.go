@@ -1,2 +1,2 @@
-// Package app is reserved for application setup and lifecycle management.
+// Package app assembles the authentication API and manages its lifecycle.
 package app
