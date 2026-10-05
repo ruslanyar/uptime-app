@@ -5,6 +5,7 @@ import (
 )
 
 func (a *Controller) Register(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var v struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`

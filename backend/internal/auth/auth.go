@@ -44,9 +44,9 @@ type Store interface {
 	Logout(context.Context, []byte) error
 }
 type Result struct {
-	AccessToken    string    `json:"access_token"`
-	TokenType      string    `json:"token_type"`
-	ExpiresIn      int       `json:"expires_in"`
+	AccessToken    string    `json:"-"`
+	TokenType      string    `json:"-"`
+	ExpiresIn      int       `json:"-"`
 	User           User      `json:"user"`
 	RefreshToken   string    `json:"-"`
 	SessionExpires time.Time `json:"-"`

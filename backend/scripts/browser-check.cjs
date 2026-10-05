@@ -15,34 +15,51 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
     await page.goto(process.env.BROWSER_FRONTEND_URL);
-    const result = await page.evaluate(async () => {
-      const post = async (path, body) => {
-        const response = await fetch(window.apiBase + '/api/v1/auth/' + path, {
-          method: 'POST', credentials: 'include',
-          headers: { 'X-CSRF-Protection': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) },
-          ...(body ? { body: JSON.stringify(body) } : {}),
-        });
-        return { status: response.status, body: response.status === 204 ? null : await response.json() };
-      };
-      const registration = await post('register', {
-        name: 'Browser User', email: 'browser@example.com', password: 'browser test password',
+    const call = (path, body) => page.evaluate(async ({ path, body }) => {
+      const response = await fetch(window.apiBase + '/api/v1/auth/' + path, {
+        method: path === 'me' ? 'GET' : 'POST', credentials: 'include', cache: 'no-store',
+        headers: path === 'me' ? {} : { 'X-CSRF-Protection': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}),
       });
-      const refresh = await post('refresh');
-      const logout = await post('logout');
-      const afterLogout = await post('refresh');
-      const me = await fetch(window.apiBase + '/api/v1/auth/me', {
-        headers: { Authorization: 'Bearer ' + registration.body.access_token },
-      });
-      return {
-        registration: registration.status, refresh: refresh.status,
-        logout: logout.status, afterLogout: afterLogout.status, me: me.status,
-        sameUser: registration.body.user?.id === refresh.body.user?.id,
-      };
-    });
-    assert.deepEqual(result, { registration: 201, refresh: 200, logout: 204, afterLogout: 401, me: 200, sameUser: true });
-    const cookies = await context.cookies(process.env.BROWSER_API_URL);
-    assert.equal(cookies.filter(c => c.name === 'refresh_token').length, 0);
-    console.log('PASS: cross-site HTTPS register, refresh, logout, cookie removal, access JWT after logout');
+      return { status: response.status, body: response.status === 204 ? null : await response.json() };
+    }, { path, body });
+    const credentials = { email: 'browser@example.com', password: 'browser test password' };
+    const registration = await call('register', { name: 'Browser User', ...credentials });
+    assert.equal(registration.status, 201);
+    assert.deepEqual(Object.keys(registration.body), ['user']);
+    assert.deepEqual(Object.keys(registration.body.user).sort(), ['email', 'id', 'name']);
+    const cookies = async () => (await context.cookies(process.env.BROWSER_API_URL + '/api/v1/auth/me')).filter(c => ['access_token', 'refresh_token'].includes(c.name));
+    const before = await cookies();
+    assert.equal(before.length, 2);
+    for (const cookie of before) {
+      assert.equal(cookie.httpOnly, true);
+      assert.equal(cookie.secure, true);
+      assert.equal(cookie.sameSite, 'None');
+      assert.equal(cookie.path, cookie.name === 'access_token' ? '/api/v1' : '/api/v1/auth');
+    }
+    let me = await call('me');
+    assert.equal(me.status, 200);
+    assert.equal(me.body.id, registration.body.user.id);
+    const refresh = await call('refresh');
+    assert.equal(refresh.status, 200);
+    assert.deepEqual(Object.keys(refresh.body), ['user']);
+    const after = await cookies();
+    assert.equal(after.length, 2);
+    for (const cookie of after) assert.notEqual(cookie.value, before.find(c => c.name === cookie.name).value, 'rotation must replace both cookies');
+    // Chromium derives expiry from integer Max-Age and response receipt time.
+    assert.ok(Math.abs(after.find(c => c.name === 'refresh_token').expires - before.find(c => c.name === 'refresh_token').expires) < 1, 'refresh must preserve absolute session expiry within cookie precision');
+    assert.equal((await call('me')).status, 200);
+    assert.equal((await call('logout')).status, 204);
+    assert.equal((await cookies()).length, 0);
+    assert.equal((await call('me')).status, 401);
+    assert.equal((await call('refresh')).status, 401);
+    const login = await call('login', credentials);
+    assert.equal(login.status, 200);
+    assert.deepEqual(Object.keys(login.body), ['user']);
+    assert.equal((await call('me')).status, 200);
+    assert.equal((await call('logout')).status, 204);
+    assert.equal((await cookies()).length, 0);
+    console.log('PASS: cross-site HTTPS register, login, cookie /me, refresh of both HttpOnly cookies, logout and cookie removal');
   } finally {
     await browser.close();
   }

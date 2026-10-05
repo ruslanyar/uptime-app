@@ -110,19 +110,36 @@ sh scripts/check-sqlc.sh
 
 | Метод и путь | Вход | Ответ |
 |---|---|---|
-| `POST /register` | JSON `name`, `email`, `password` | `201`, токены и пользователь |
-| `POST /login` | JSON `email`, `password` | `200`, токены и пользователь |
-| `POST /refresh` | Cookie | `200`, токены и пользователь |
-| `POST /logout` | Cookie | `204`, удаление cookie |
-| `GET /me` | `Authorization: Bearer <access_token>` | `200`, `{id,name,email}` |
+| `POST /register` | JSON `name`, `email`, `password` | `201`, `{user: {id,name,email}}`, две cookies |
+| `POST /login` | JSON `email`, `password` | `200`, `{user: {id,name,email}}`, две cookies |
+| `POST /refresh` | Refresh-cookie | `200`, `{user: {id,name,email}}`, две cookies |
+| `POST /logout` | Refresh-cookie | `204`, удаление обеих cookies |
+| `GET /me` | Access-cookie или `Authorization: Bearer <JWT>` | `200`, `{id,name,email}` |
 
-Токенный ответ: `{access_token,token_type:"Bearer",expires_in:86400,user:{id,name,email}}`,
-с `Cache-Control: no-store`. Refresh передаётся только в cookie `refresh_token`:
-HttpOnly, без Domain, Path `/api/v1/auth`, настроенные Secure/SameSite. Срок cookie
-равен оставшемуся абсолютному сроку сессии (30 дней); refresh этот срок не продлевает.
-Access JWT действует 24 часа. Logout и повторное использование старого refresh
-отзывают сессию, но ранее выданный access JWT действует до своего истечения.
-Входы создают независимые сессии. БД хранит только SHA-256-хеши refresh и сохраняет
+Ответ регистрации, входа и refresh: `{user:{id,name,email}}` с
+`Cache-Control: no-store`. Токены и поля `token_type` / `expires_in` в JSON
+не возвращаются. Это несовместимое изменение прежнего контракта:
+клиенты, ожидающие `access_token` в JSON, должны перейти на cookies.
+
+Оба токена передаются в HttpOnly cookies без Domain, с настроенными
+Secure/SameSite:
+
+| Cookie | Path | Срок |
+|---|---|---|
+| `access_token` | `/api/v1` | 24 часа |
+| `refresh_token` | `/api/v1/auth` | Оставшееся время 30-дневной сессии |
+
+Refresh заменяет обе cookies, не продлевая абсолютный срок сессии.
+`/me` проверяет JWT из access-cookie; присутствующий `Authorization` имеет
+приоритет. Неверный, пустой или дублирующийся заголовок возвращает `401`,
+даже если cookie действительна. Cookies выдаются только после успешного commit.
+Logout и refresh с ответом `401` удаляют обе cookies с исходными параметрами;
+внутренние ошибки refresh и logout cookies не изменяют. Logout без сессии
+идемпотентен и также удаляет обе cookies.
+
+Logout и повторное использование старого refresh отзывают refresh-сессию;
+скопированный ранее access JWT действует до своего истечения. Входы создают
+независимые сессии. БД хранит только SHA-256-хеши refresh и сохраняет
 использованные токены для обнаружения повторного использования.
 
 Имя: 1–100 символов после trim; email: trim + нижний регистр, корректный формат,
@@ -145,7 +162,7 @@ curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
   http://localhost:8080/api/v1/auth/login
 curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
   -H 'X-CSRF-Protection: 1' http://localhost:8080/api/v1/auth/refresh -X POST
-curl -i -H 'Authorization: Bearer <access_token-from-json>' \
+curl -i -b /tmp/uptime-cookies.txt \
   http://localhost:8080/api/v1/auth/me
 curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
   -H 'X-CSRF-Protection: 1' http://localhost:8080/api/v1/auth/logout -X POST
@@ -159,7 +176,9 @@ Preflight OPTIONS проверяет Origin, методы GET/POST и загол
 Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и изменения состояния.
 `Sec-Fetch-Site: cross-site` сам по себе не запрещает запрос.
 
-Клиент для регистрации, входа, refresh и logout использует:
+Клиент для всех маршрутов, включая `/me`, использует `credentials: "include"`.
+На каждом POST нужен CSRF-заголовок; токены не читаются из JSON или cookies
+и не сохраняются в JavaScript. Например:
 
 ```js
 await fetch(`${apiBase}/api/v1/auth/refresh`, {
@@ -216,5 +235,6 @@ AUTH_BROWSER_CHECK=1 go test -v ./internal/storage/postgres -run TestBrowserCros
 ```
 
 Результаты реализации, включая интеграционные и браузерные проверки,
-записаны в [плане](docs/plan/AUTH_PLAN.md). Генерируемые сборки `bin/`, зависимости,
+записаны в [исходном плане](docs/plan/AUTH_PLAN.md) и
+[плане cookie-контракта](docs/plan/COOKIE_AUTH_PLAN.md). Генерируемые сборки `bin/`, зависимости,
 coverage, cookie-файлы и секреты не включайте в коммиты.

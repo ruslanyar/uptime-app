@@ -2,14 +2,14 @@ package authcontroller
 
 import (
 	"net/http"
-	"time"
 )
 
 func (a *Controller) Logout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	if e := a.service.Logout(r.Context(), refreshCookie(r)); e != nil {
 		serviceError(w, e)
 		return
 	}
-	a.cookie(w, "", time.Time{})
+	a.clearCookies(w)
 	w.WriteHeader(204)
 }

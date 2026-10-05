@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -13,8 +14,9 @@ import (
 )
 
 type fakeService struct {
-	calls int
-	err   error
+	calls   int
+	meToken string
+	err     error
 }
 
 func (f *fakeService) result() (auth.Result, error) {
@@ -27,8 +29,9 @@ func (f *fakeService) Register(context.Context, string, string, string) (auth.Re
 func (f *fakeService) Login(context.Context, string, string) (auth.Result, error) { return f.result() }
 func (f *fakeService) Refresh(context.Context, string) (auth.Result, error)       { return f.result() }
 func (f *fakeService) Logout(context.Context, string) error                       { f.calls++; return f.err }
-func (f *fakeService) Me(context.Context, string) (auth.User, error) {
+func (f *fakeService) Me(_ context.Context, token string) (auth.User, error) {
 	f.calls++
+	f.meToken = token
 	return auth.User{Name: "User"}, f.err
 }
 func cfg() config.Config {
@@ -55,7 +58,7 @@ func TestProtection(t *testing.T) {
 				f := &fakeService{}
 				w := request(New(f, cfg()), "POST", path, origin, csrf, `{"email":"e@x.com","password":"password"}`)
 				allowed := (origin == "" || cfg().AllowedOrigins[origin]) && csrf == "1"
-				if !allowed && (w.Code != 403 || f.calls != 0) {
+				if !allowed && (w.Code != 403 || f.calls != 0 || len(w.Result().Cookies()) != 0) {
 					t.Fatalf("%s %s %s: %d calls %d", path, origin, csrf, w.Code, f.calls)
 				}
 				if origin != "" && cfg().AllowedOrigins[origin] && (w.Header().Get("Access-Control-Allow-Origin") != origin || w.Header().Get("Access-Control-Allow-Credentials") != "true") {
@@ -85,51 +88,141 @@ func TestPreflight(t *testing.T) {
 func TestResponses(t *testing.T) {
 	for _, path := range []string{"register", "login", "refresh"} {
 		f := &fakeService{}
-		w := request(New(f, cfg()), "POST", path, "https://client.example", "1", `{"name":"User","email":"u@x.com","password":"long password here"}`)
-		if path == "login" {
-			w = request(New(f, cfg()), "POST", path, "https://client.example", "1", `{"email":"u@x.com","password":"long password here"}`)
+		body := `{"email":"u@x.com","password":"long password here"}`
+		if path == "register" {
+			body = `{"name":"User","email":"u@x.com","password":"long password here"}`
 		}
+		w := request(New(f, cfg()), "POST", path, "https://client.example", "1", body)
 		want := 200
 		if path == "register" {
 			want = 201
 		}
 		if w.Code != want {
-			t.Fatal(path, w.Code, w.Body.String())
+			t.Fatal(path, w.Code)
 		}
-		if strings.Contains(w.Body.String(), "secret-refresh") || strings.Contains(w.Body.String(), "password") || w.Header().Get("Cache-Control") != "no-store" {
-			t.Fatal(w.Body.String())
+		var payload map[string]json.RawMessage
+		if err := json.Unmarshal(w.Body.Bytes(), &payload); err != nil || len(payload) != 1 || payload["user"] == nil {
+			t.Fatal("unexpected public response", w.Body.String())
+		}
+		var user map[string]any
+		_ = json.Unmarshal(payload["user"], &user)
+		if len(user) != 3 || user["id"] == nil || user["name"] != "User" || user["email"] != "user@example.com" {
+			t.Fatal("unexpected user fields")
+		}
+		if w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal("cache enabled")
 		}
 		cookies := w.Result().Cookies()
-		if len(cookies) != 1 {
-			t.Fatal("cookie missing")
+		if len(cookies) != 2 {
+			t.Fatal("expected two cookies")
 		}
-		c := cookies[0]
-		if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteNoneMode || c.Path != "/api/v1/auth" || c.Domain != "" || c.MaxAge > 3600 || c.MaxAge < 3590 {
-			t.Fatal(c)
+		for _, c := range cookies {
+			if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteNoneMode || c.Domain != "" {
+				t.Fatal("cookie attributes")
+			}
+			switch c.Name {
+			case "access_token":
+				if c.Value != "access" || c.Path != "/api/v1" || c.MaxAge < 86390 || c.MaxAge > 86400 || time.Until(c.Expires) < auth.AccessTTL-time.Second*2 {
+					t.Fatal("access cookie lifetime or path")
+				}
+			case "refresh_token":
+				if c.Value != "secret-refresh" || c.Path != "/api/v1/auth" || c.MaxAge < 3590 || c.MaxAge > 3600 || time.Until(c.Expires) > time.Hour {
+					t.Fatal("refresh cookie lifetime or path")
+				}
+			default:
+				t.Fatal("unexpected cookie")
+			}
 		}
 	}
-	f := &fakeService{}
-	local := cfg()
-	local.CookieSecure = false
-	local.CookieSameSite = http.SameSiteLaxMode
-	w := request(New(f, local), "POST", "refresh", "", "1", "")
-	c := w.Result().Cookies()[0]
-	if c.Secure || c.SameSite != http.SameSiteLaxMode {
-		t.Fatal(c)
-	}
-	w = request(New(f, local), "POST", "logout", "", "1", "")
-	c = w.Result().Cookies()[0]
-	if w.Code != 204 || c.MaxAge != -1 || c.Path != "/api/v1/auth" || c.SameSite != http.SameSiteLaxMode {
-		t.Fatal(w.Code, c)
+	for _, mode := range []http.SameSite{http.SameSiteLaxMode, http.SameSiteStrictMode} {
+		local := cfg()
+		local.CookieSecure = false
+		local.CookieSameSite = mode
+		w := request(New(&fakeService{}, local), "POST", "refresh", "", "1", "")
+		for _, c := range w.Result().Cookies() {
+			if c.Secure || c.SameSite != mode {
+				t.Fatal("local cookie attributes")
+			}
+		}
+		w = request(New(&fakeService{}, local), "POST", "logout", "", "1", "")
+		if w.Code != 204 {
+			t.Fatal(w.Code)
+		}
+		assertDeletedCookies(t, w, local)
 	}
 	for _, tc := range []struct {
 		err    error
 		status int
 	}{{auth.ErrInvalid, 400}, {auth.ErrUnauthorized, 401}, {auth.ErrConflict, 409}, {errors.New("commit failed"), 500}} {
-		f := &fakeService{err: tc.err}
-		w := request(New(f, cfg()), "POST", "refresh", "https://client.example", "1", "")
-		if w.Code != tc.status || len(w.Result().Cookies()) != 0 || !strings.Contains(w.Body.String(), `"error"`) || w.Header().Get("Access-Control-Allow-Origin") == "" {
-			t.Fatal(w.Code, w.Body.String())
+		for _, path := range []string{"register", "login", "refresh"} {
+			body := `{"email":"u@x.com","password":"long password here"}`
+			if path == "register" {
+				body = `{"name":"User","email":"u@x.com","password":"long password here"}`
+			}
+			w := request(New(&fakeService{err: tc.err}, cfg()), "POST", path, "https://client.example", "1", body)
+			if w.Code != tc.status || !strings.Contains(w.Body.String(), `"error"`) || w.Header().Get("Access-Control-Allow-Origin") == "" {
+				t.Fatal(path, w.Code)
+			}
+			if path == "refresh" && tc.status == 401 {
+				assertDeletedCookies(t, w, cfg())
+			} else if len(w.Result().Cookies()) != 0 {
+				t.Fatal("cookies changed on failed request")
+			}
+		}
+	}
+	w := request(New(&fakeService{err: errors.New("database unavailable")}, cfg()), "POST", "logout", "", "1", "")
+	if w.Code != 500 || len(w.Result().Cookies()) != 0 {
+		t.Fatal("failed logout changed cookies")
+	}
+}
+func assertDeletedCookies(t *testing.T, w *httptest.ResponseRecorder, cfg config.Config) {
+	t.Helper()
+	cookies := w.Result().Cookies()
+	if len(cookies) != 2 {
+		t.Fatal("expected two deleted cookies")
+	}
+	for _, c := range cookies {
+		path := "/api/v1"
+		if c.Name == "refresh_token" {
+			path = "/api/v1/auth"
+		} else if c.Name != "access_token" {
+			t.Fatal("unexpected cookie")
+		}
+		if c.Value != "" || c.MaxAge != -1 || !c.Expires.Before(time.Now()) || c.Path != path || !c.HttpOnly || c.Domain != "" || c.Secure != cfg.CookieSecure || c.SameSite != cfg.CookieSameSite {
+			t.Fatal("incorrect cookie deletion")
+		}
+	}
+}
+func TestMeTokenSelection(t *testing.T) {
+	for _, tc := range []struct {
+		headers       []string
+		cookie, token string
+		status        int
+	}{
+		{nil, "cookie-token", "cookie-token", 200},
+		{[]string{"Bearer header-token"}, "cookie-token", "header-token", 200},
+		{[]string{"Bearer header-token"}, "", "header-token", 200},
+		{[]string{""}, "cookie-token", "", 401},
+		{[]string{"Basic invalid"}, "cookie-token", "", 401},
+		{[]string{"Bearer"}, "cookie-token", "", 401},
+		{[]string{"Bearer one", "Bearer two"}, "cookie-token", "", 401},
+		{nil, "", "", 401},
+	} {
+		f := &fakeService{}
+		r := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
+		if tc.headers != nil {
+			r.Header["Authorization"] = tc.headers
+		}
+		if tc.cookie != "" {
+			r.AddCookie(&http.Cookie{Name: "access_token", Value: tc.cookie})
+		}
+		w := httptest.NewRecorder()
+		New(f, cfg()).ServeHTTP(w, r)
+		if w.Code != tc.status || f.meToken != tc.token || w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal("me token selection", w.Code, f.meToken)
+		}
+		if tc.status == 401 && f.calls != 0 {
+			t.Fatal("malformed auth reached service")
 		}
 	}
 }

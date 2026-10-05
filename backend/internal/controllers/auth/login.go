@@ -7,6 +7,7 @@ import (
 )
 
 func (a *Controller) Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var v struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`

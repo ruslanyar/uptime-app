@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This project implements an authentication HTTP API in Go with PostgreSQL. Uptime monitoring is not implemented yet.
+This project implements an authentication HTTP API in Go with PostgreSQL. Access and refresh tokens are delivered in HttpOnly cookies; public JSON responses contain user data only. Uptime monitoring is not implemented yet.
 
 - `cmd/api/`: HTTP API entry point; `cmd/migrate/`: separate Tern migration command.
 - `internal/app/`: application wiring, connection pool and HTTP lifecycle.
