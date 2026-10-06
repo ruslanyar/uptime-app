@@ -1,2 +1,4 @@
-import { Account } from "@/components/account";
-export default function Home() { return <Account redirectOnly />; }
+import { Account } from '@/components/account';
+export default function Home() {
+  return <Account redirectOnly />;
+}

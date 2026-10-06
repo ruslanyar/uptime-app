@@ -1,0 +1,14 @@
+{
+  "printWidth": 80,
+  "tabWidth": 2,
+  "singleQuote": false,
+  "semi": true,
+  "overrides": [
+    {
+      "files": "*.{js,mjs,cjs,ts,mts,cts,tsx}",
+      "options": {
+        "singleQuote": true
+      }
+    }
+  ]
+}

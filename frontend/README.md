@@ -9,7 +9,6 @@ Ctrl+C останавливает приложения и только само�
 на `http://localhost:3000`, чтобы имя хоста согласовывалось с API и cookies.
 Ниже описан самостоятельный запуск этого проекта.
 
-
 Next.js 16.3.8 / React 19.2.8, TypeScript, App Router и Tailwind CSS.
 Регистрация (`/register`), вход (`/login`), аккаунт (`/account`) и выход
 работают с [Go API](../backend/README.md). Корень перенаправляет после проверки
@@ -88,12 +87,23 @@ Refresh-сессия истекает через 30 дней с создания
 Из `frontend/`:
 
 ```sh
+npm run format:check
 npm run lint
 npm run typecheck
 npm test
 NEXT_PUBLIC_API_URL=http://localhost:8080 npm run build
 npm start
 ```
+
+`npm run format` форматирует исходники, конфигурацию и документацию с помощью
+Prettier; `npm run format:check` проверяет форматирование без изменения файлов.
+Минимальные настройки в `.prettierrc.json`: строки до 80 символов, отступ в два
+пробела и точки с запятой. Для строк в JS, TS и TSX (включая модульные расширения)
+используются одинарные кавычки; атрибуты JSX сохраняют двойные кавычки.
+`.prettierignore` исключает зависимости,
+lockfile, сборки `.next*`, `out/`, `build/`, сгенерированные типы, отчёты тестов,
+env-файлы, сертификаты и логи. `eslint-config-prettier` отключает правила ESLint,
+которые могут конфликтовать с форматированием.
 
 `npm run test:watch` запускает Vitest в режиме наблюдения. Unit- и компонентные
 тесты используют jsdom и React Testing Library: Unicode, ограничения полей,

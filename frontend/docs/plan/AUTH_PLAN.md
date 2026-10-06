@@ -22,13 +22,13 @@ email и восстановление пароля в этот этап не в�
 
 Все маршруты используют префикс `/api/v1/auth`.
 
-| Маршрут | Вход | Успешный ответ |
-|---|---|---|
-| `POST /register` | JSON: `name`, `email`, `password` | `201`, `{user: {id, name, email}}`, две cookies |
-| `POST /login` | JSON: `email`, `password` | `200`, `{user: {id, name, email}}`, две cookies |
-| `POST /refresh` | Refresh-cookie | `200`, `{user: {id, name, email}}`, замена обеих cookies |
-| `POST /logout` | Refresh-cookie | `204`, отзыв сессии и удаление обеих cookies |
-| `GET /me` | Access-cookie | `200`, `{id, name, email}` |
+| Маршрут          | Вход                              | Успешный ответ                                           |
+| ---------------- | --------------------------------- | -------------------------------------------------------- |
+| `POST /register` | JSON: `name`, `email`, `password` | `201`, `{user: {id, name, email}}`, две cookies          |
+| `POST /login`    | JSON: `email`, `password`         | `200`, `{user: {id, name, email}}`, две cookies          |
+| `POST /refresh`  | Refresh-cookie                    | `200`, `{user: {id, name, email}}`, замена обеих cookies |
+| `POST /logout`   | Refresh-cookie                    | `204`, отзыв сессии и удаление обеих cookies             |
+| `GET /me`        | Access-cookie                     | `200`, `{id, name, email}`                               |
 
 Ошибка: `{error: {code, message}}`. Обрабатывать `400`, `401`, `403`, `409`, `500`
 и сетевые ошибки отдельно. Неизвестный email и неверный пароль дают одинаковое
@@ -138,7 +138,6 @@ Web Locks координирует вкладки одного origin, поэт�
 - [x] Обработать сетевые ошибки, неподдерживаемый браузер и блокировку cookies.
 - [x] Добавить unit-, компонентные и E2E-тесты, выполнить обязательные проверки.
 - [x] Обновить документацию и зафиксировать результаты приёмки.
-
 
 ## Приёмка — 2026-10-05
 

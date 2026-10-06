@@ -30,6 +30,8 @@ Use Node.js 20.19+ (or 22.12+ / 24+) and npm. Run these commands from `frontend/
 - `npm ci`: install dependencies using the committed lockfile.
 - `npm run dev`: start development at `http://localhost:3000`.
 - `npm run lint`: run ESLint with Next.js and TypeScript rules.
+- `npm run format`: format source, configuration, and documentation with Prettier.
+- `npm run format:check`: check formatting without modifying files.
 - `npm run typecheck`: check TypeScript without emitting files.
 - `npm test`: run Vitest and React Testing Library checks.
 - `npm run test:e2e`: run Playwright with the real API and isolated PostgreSQL.
@@ -38,7 +40,7 @@ Use Node.js 20.19+ (or 22.12+ / 24+) and npm. Run these commands from `frontend/
 
 ## Coding Style & Naming Conventions
 
-Match existing TypeScript style: two-space indentation, double quotes, and semicolons. TypeScript strict checking is enabled. Use `@/*` imports for modules under `src/`, PascalCase for React components, and App Router filenames such as `page.tsx` and `layout.tsx`. No separate formatter is configured.
+Match existing TypeScript style: two-space indentation, single quotes in JavaScript/TypeScript strings, double quotes in JSX attributes, and semicolons. Prettier is configured in `.prettierrc.json`; `.prettierignore` excludes dependencies, generated files, test artifacts, and local configuration. Run `npm run format:check` when validating changes. TypeScript strict checking is enabled. Use `@/*` imports for modules under `src/`, PascalCase for React components, and App Router filenames such as `page.tsx` and `layout.tsx`.
 
 ## Testing & Pull Request Guidelines
 

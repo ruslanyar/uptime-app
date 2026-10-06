@@ -1,0 +1,24 @@
+# Dependencies and package manager files
+node_modules/
+.pnp.*
+.yarn/
+package-lock.json
+
+# Generated builds and deployment state
+.next*/
+out/
+build/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+
+# Local configuration, credentials and logs
+.env*
+*.pem
+*.log*
+.DS_Store
