@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import https from 'node:https';
 import http from 'node:http';
 import net from 'node:net';
+
 const backend = resolve('../backend');
 const temporary = await mkdtemp(join(tmpdir(), 'uptime-frontend-e2e-'));
 const database = `frontend_e2e_${randomBytes(8).toString('hex')}`;

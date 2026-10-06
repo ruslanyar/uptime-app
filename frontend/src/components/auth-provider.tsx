@@ -9,6 +9,7 @@ import {
 import { AuthAPI } from '@/lib/auth/api';
 import { Session } from '@/lib/auth/session';
 import { BrowserCoordination } from '@/lib/auth/browser-coordination';
+
 const Context = createContext<Session | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [{ session, coordination }] = useState(() => {

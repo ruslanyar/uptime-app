@@ -1,4 +1,5 @@
 import { AuthAPI, AuthError, type Credentials, type User } from './api';
+
 export type SessionState = {
   status: 'loading' | 'authenticated' | 'anonymous' | 'error';
   user?: User;

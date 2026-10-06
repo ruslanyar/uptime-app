@@ -6,6 +6,7 @@ import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { errorMessage, AuthError } from '@/lib/auth/api';
 import { validate, type FieldErrors } from '@/lib/auth/validation';
+
 export function AuthForm({ register = false }: { register?: boolean }) {
   const auth = useAuth();
   const router = useRouter();

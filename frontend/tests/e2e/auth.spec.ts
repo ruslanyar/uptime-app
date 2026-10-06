@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
+
 const password = ' browser password 123 ';
 async function register(page: Page, screenshot?: string) {
   const email = `browser-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;

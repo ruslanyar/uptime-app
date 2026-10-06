@@ -1,5 +1,6 @@
 import { AuthError } from './api';
 import type { Coordination, SessionEvent } from './session';
+
 export class BrowserCoordination implements Coordination {
   private channel?: BroadcastChannel;
   open(receive: (event: SessionEvent) => void) {

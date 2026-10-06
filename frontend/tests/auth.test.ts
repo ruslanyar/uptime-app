@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { apiOrigin, AuthAPI, AuthError, errorMessage } from '@/lib/auth/api';
 import { validate } from '@/lib/auth/validation';
 import { Session } from '@/lib/auth/session';
+
 const user = { id: '1', name: 'Иван', email: 'ivan@example.com' };
 const unauthorized = () => Promise.reject(new AuthError('http', 401));
 const coordination = () => {

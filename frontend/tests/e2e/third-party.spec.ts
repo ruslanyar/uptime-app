@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+
 const password = ' browser password 123 ';
 const apiURL = () => 'https://api.auth-service.test:18443';
 test('blocking third-party cookies detects an unsaved session', async ({

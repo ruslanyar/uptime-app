@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { errorMessage } from '@/lib/auth/api';
+
 export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   const auth = useAuth();
   const router = useRouter();

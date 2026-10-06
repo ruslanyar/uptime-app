@@ -105,6 +105,11 @@ lockfile, сборки `.next*`, `out/`, `build/`, сгенерированны�
 env-файлы, сертификаты и логи. `eslint-config-prettier` отключает правила ESLint,
 которые могут конфликтовать с форматированием.
 
+`@stylistic/eslint-plugin` требует пустую строку после блока импортов, не меняя
+расстояние между самими импортами. Правило настроено после `eslint-config-prettier`
+в `eslint.config.mjs`. Для автоматического исправления выполните
+`npm run lint -- --fix`, затем `npm run format`.
+
 `npm run test:watch` запускает Vitest в режиме наблюдения. Unit- и компонентные
 тесты используют jsdom и React Testing Library: Unicode, ограничения полей,
 ошибки API, состояние форм, однократный refresh, сетевые сбои и устаревшие ответы.

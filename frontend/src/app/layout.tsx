@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AuthProvider } from '@/components/auth-provider';
 import './globals.css';
+
 export const metadata: Metadata = {
   title: 'Uptime — аккаунт',
   description: 'Регистрация и вход в Uptime',

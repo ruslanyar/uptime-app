@@ -42,6 +42,8 @@ Use Node.js 20.19+ (or 22.12+ / 24+) and npm. Run these commands from `frontend/
 
 Match existing TypeScript style: two-space indentation, single quotes in JavaScript/TypeScript strings, double quotes in JSX attributes, and semicolons. Prettier is configured in `.prettierrc.json`; `.prettierignore` excludes dependencies, generated files, test artifacts, and local configuration. Run `npm run format:check` when validating changes. TypeScript strict checking is enabled. Use `@/*` imports for modules under `src/`, PascalCase for React components, and App Router filenames such as `page.tsx` and `layout.tsx`.
 
+ESLint Stylistic requires a blank line after the import block; spacing between imports is unrestricted. Run `npm run lint -- --fix` to apply this rule, then `npm run format`.
+
 ## Testing & Pull Request Guidelines
 
 Run lint, type checking, Vitest, a production build, and Playwright E2E for authentication changes. E2E requires Docker Compose, Go, OpenSSL and Chromium; see README for ports and configuration. Skipped real-API scenarios do not count as validation. Inspect affected screens. Document any new test tooling and commands when introduced. Include screenshots in PRs that change the UI.

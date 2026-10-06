@@ -1,4 +1,5 @@
 import type { Credentials } from './api';
+
 export type FieldErrors = Partial<Record<keyof Credentials, string>>;
 export function validate(
   values: Credentials,

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthForm } from '@/components/auth-form';
 import { AuthError } from '@/lib/auth/api';
+
 const { mutate, auth } = vi.hoisted(() => {
   const mutate = vi.fn();
   return {

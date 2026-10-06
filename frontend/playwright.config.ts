@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { defineConfig } from '@playwright/test';
+
 // Local servers must bypass inherited CI HTTP proxies.
 process.env.NO_PROXY = [
   process.env.NO_PROXY,
