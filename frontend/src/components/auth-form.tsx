@@ -19,7 +19,7 @@ export function AuthForm({
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [show, setShow] = useState(false);
-  if (auth.status === 'authenticated') redirect('/account');
+  if (auth.status === 'authenticated') redirect('/');
   if (auth.status === 'loading' && !pending) return <SessionStatus />;
   const formError =
     auth.error instanceof AuthError &&

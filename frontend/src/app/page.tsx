@@ -1,5 +1,5 @@
-import { Account } from '@/components/account';
+import { Dashboard } from '@/components/dashboard';
 
 export default function Home() {
-  return <Account redirectOnly />;
+  return <Dashboard />;
 }

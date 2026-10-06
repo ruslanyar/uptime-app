@@ -1,5 +1,6 @@
 import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Dashboard } from '@/components/dashboard';
 import { Account } from '@/components/account';
 import { AuthForm } from '@/components/auth-form';
 import Login from '@/app/login/page';
@@ -61,32 +62,28 @@ describe('server content and session navigation', () => {
     },
   );
 
-  it.each([false, true])(
+  it.each([Account, Dashboard])(
     'redirects anonymous account/root to login',
-    (redirectOnly) => {
+    (Page) => {
       auth.status = 'anonymous';
-      expect(() =>
-        renderToString(<Account redirectOnly={redirectOnly} />),
-      ).toThrow('redirect:/login');
+      expect(() => renderToString(<Page />)).toThrow('redirect:/login');
     },
   );
 
   it.each([false, true])(
-    'redirects authenticated forms to account',
+    'redirects authenticated forms to dashboard',
     (register) => {
       auth.status = 'authenticated';
       expect(() => renderToString(<AuthForm register={register} />)).toThrow(
-        'redirect:/account',
+        'redirect:/',
       );
     },
   );
 
-  it('redirects authenticated root and displays authenticated account', () => {
+  it('displays authenticated dashboard and account', () => {
     auth.status = 'authenticated';
     auth.user = { id: '1', name: 'Анна', email: 'anna@example.com' };
-    expect(() => renderToString(<Account redirectOnly />)).toThrow(
-      'redirect:/account',
-    );
+    expect(renderToString(<Dashboard />)).toContain('Меню пользователя');
     redirect.mockClear();
     expect(renderToString(<Account />)).toContain('anna@example.com');
     expect(redirect).not.toHaveBeenCalled();
@@ -99,7 +96,7 @@ describe('server content and session navigation', () => {
       auth.error = status === 'error' ? new AuthError('network') : undefined;
       for (const element of [
         <Account key="account" />,
-        <Account key="root" redirectOnly />,
+        <Dashboard key="root" />,
         <AuthForm key="login" />,
         <AuthForm key="register" register />,
       ]) {

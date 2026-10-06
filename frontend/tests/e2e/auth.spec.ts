@@ -12,7 +12,7 @@ async function register(page: Page, screenshot?: string) {
     await page.screenshot({ path: `test-results/register-${screenshot}.png` });
   const historyLength = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Создать аккаунт' }).click();
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/$/);
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await expect(
     page.getByRole('heading', { name: 'Здравствуйте, Анна' }),
@@ -51,7 +51,13 @@ test('registration, reload, HttpOnly cookies, storage, logout and login', async 
     })),
   ).toEqual({ cookie: '', local: [], session: [] });
   await page.reload();
+  await page.locator('summary').click();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Мой профиль' }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.goto('/');
+  await page.locator('summary').click();
   await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
@@ -63,15 +69,26 @@ test('registration, reload, HttpOnly cookies, storage, logout and login', async 
     path: `test-results/login-${info.project.name}.png`,
   });
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/$/);
+  await page.screenshot({
+    path: `test-results/dashboard-desktop-${info.project.name}.png`,
+  });
+  await page.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText(email, { exact: true })).not.toBeVisible();
+  await expect(page.locator('summary')).toBeFocused();
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.locator('summary').click();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
   await page.screenshot({
-    path: `test-results/account-${info.project.name}.png`,
+    path: `test-results/dashboard-${info.project.name}.png`,
   });
 });
 test('simultaneous tabs restore expired access with one refresh and synchronize logout', async ({
@@ -102,6 +119,7 @@ test('simultaneous tabs restore expired access with one refresh and synchronize 
     { ...access, value: `${header}.${payload}.${signature}` },
   ]);
   await Promise.all([page.reload(), other.reload()]);
+  await page.locator('summary').click();
   await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible();
   await expect(other.getByRole('button', { name: 'Выйти' })).toBeVisible();
   expect(refreshes).toBe(1);
@@ -177,15 +195,17 @@ test('network errors preserve the page and allow explicit recovery', async ({
   await expect(page.locator('main').getByRole('alert')).toContainText(
     'Нет связи с сервером',
   );
-  await expect(page).toHaveURL(/\/account$/);
+  await expect(page).toHaveURL(/\/$/);
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Повторить проверку' }).click();
+  await page.locator('summary').click();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
 });
 test('duplicate email and incorrect password show distinct errors', async ({
   page,
 }) => {
   const email = await register(page);
+  await page.locator('summary').click();
   await page.getByRole('button', { name: 'Выйти' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('Email').fill(email);
@@ -282,12 +302,13 @@ test('root and form routes follow current session state', async ({ page }) => {
   await register(page);
   for (const path of ['/', '/login', '/register']) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/account$/);
+    await expect(page).toHaveURL(/\/$/);
     await expect(
       page.getByRole('heading', { name: 'Здравствуйте, Анна' }),
     ).toBeVisible();
   }
   const historyLength = await page.evaluate(() => history.length);
+  await page.locator('summary').click();
   await page.getByRole('button', { name: 'Выйти', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
