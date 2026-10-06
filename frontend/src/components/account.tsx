@@ -1,20 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { redirect } from 'next/navigation';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { errorMessage } from '@/lib/auth/api';
 
 export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   const auth = useAuth();
-  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
-  useEffect(() => {
-    if (auth.status === 'anonymous') router.replace('/login');
-    else if (redirectOnly && auth.status === 'authenticated')
-      router.replace('/account');
-  }, [auth.status, redirectOnly, router]);
+  if (auth.status === 'anonymous') redirect('/login');
+  if (redirectOnly && auth.status === 'authenticated') redirect('/account');
   if (redirectOnly || auth.status !== 'authenticated' || !auth.user)
     return <SessionStatus />;
   async function logout() {

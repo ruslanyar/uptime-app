@@ -10,8 +10,10 @@ async function register(page: Page, screenshot?: string) {
   await page.getByLabel('Пароль', { exact: true }).fill(password);
   if (screenshot)
     await page.screenshot({ path: `test-results/register-${screenshot}.png` });
+  const historyLength = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Создать аккаунт' }).click();
   await expect(page).toHaveURL(/\/account$/);
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await expect(
     page.getByRole('heading', { name: 'Здравствуйте, Анна' }),
   ).toBeVisible();
@@ -239,4 +241,56 @@ test('an uncertain refresh is not retried by a new tab until explicit recovery',
       )
     ).length,
   ).toBe(2);
+});
+
+for (const [path, title, description] of [
+  ['/login', 'Войти', 'Рады видеть вас снова в Uptime.'],
+  ['/register', 'Создать аккаунт', 'Начните с личного аккаунта в Uptime.'],
+]) {
+  test(`initial HTML ${path} works without JavaScript`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      baseURL,
+      javaScriptEnabled: false,
+      ignoreHTTPSErrors: true,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(path);
+      await expect(
+        page.getByRole('heading', { name: title, exact: true }),
+      ).toBeVisible();
+      await expect(page.getByText(description, { exact: true })).toBeVisible();
+      await expect(page.getByRole('status')).toHaveText('Проверяем сессию…');
+      await expect(page.locator('input')).toHaveCount(0);
+      await expect(page.locator('.profile')).toHaveCount(0);
+      await expect(page.locator('.footer-link')).toHaveCount(0);
+      await page.screenshot({
+        path: `test-results/initial-${path.slice(1)}-${new URL(baseURL!).protocol.slice(0, -1)}.png`,
+      });
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+test('root and form routes follow current session state', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/login$/);
+  await register(page);
+  for (const path of ['/', '/login', '/register']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/account$/);
+    await expect(
+      page.getByRole('heading', { name: 'Здравствуйте, Анна' }),
+    ).toBeVisible();
+  }
+  const historyLength = await page.evaluate(() => history.length);
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
+  await page.goto('/account');
+  await expect(page).toHaveURL(/\/login$/);
 });

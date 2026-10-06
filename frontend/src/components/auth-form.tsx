@@ -1,28 +1,26 @@
 'use client';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { redirect } from 'next/navigation';
+import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { errorMessage, AuthError } from '@/lib/auth/api';
 import { validate, type FieldErrors } from '@/lib/auth/validation';
 
-export function AuthForm({ register = false }: { register?: boolean }) {
+export function AuthForm({
+  register = false,
+  footer,
+}: {
+  register?: boolean;
+  footer?: ReactNode;
+}) {
   const auth = useAuth();
-  const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const [show, setShow] = useState(false);
-  useEffect(() => {
-    if (auth.status === 'authenticated') router.replace('/account');
-  }, [auth.status, router]);
-  if (
-    (auth.status === 'loading' && !pending) ||
-    auth.status === 'authenticated'
-  )
-    return <SessionStatus />;
+  if (auth.status === 'authenticated') redirect('/account');
+  if (auth.status === 'loading' && !pending) return <SessionStatus />;
   const formError =
     auth.error instanceof AuthError &&
     auth.error.kind === 'http' &&
@@ -62,13 +60,6 @@ export function AuthForm({ register = false }: { register?: boolean }) {
   }
   return (
     <>
-      <p className="eyebrow">ВАШ АККАУНТ</p>
-      <h1>{register ? 'Создать аккаунт' : 'Войти'}</h1>
-      <p className="muted">
-        {register
-          ? 'Начните с личного аккаунта в Uptime.'
-          : 'Рады видеть вас снова в Uptime.'}
-      </p>
       <form onSubmit={submit} noValidate>
         {register && (
           <div className="field">
@@ -145,12 +136,7 @@ export function AuthForm({ register = false }: { register?: boolean }) {
           {pending ? 'Подождите…' : register ? 'Создать аккаунт' : 'Войти'}
         </button>
       </form>
-      <p className="footer-link">
-        {register ? 'Уже есть аккаунт?' : 'Нет аккаунта?'}{' '}
-        <Link href={register ? '/login' : '/register'}>
-          {register ? 'Войти' : 'Зарегистрироваться'}
-        </Link>
-      </p>
+      {footer}
     </>
   );
 }

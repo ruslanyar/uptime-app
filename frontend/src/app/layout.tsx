@@ -13,19 +13,19 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body>
-        <AuthProvider>
-          <div className="shell">
-            <header>
-              <Link className="brand" href="/">
-                <span aria-hidden="true" />
-                uptime
-              </Link>
-            </header>
-            <main>
-              <section className="card">{children}</section>
-            </main>
-          </div>
-        </AuthProvider>
+        <div className="shell">
+          <header>
+            <Link className="brand" href="/">
+              <span aria-hidden="true" />
+              uptime
+            </Link>
+          </header>
+          <main>
+            <section className="card">
+              <AuthProvider>{children}</AuthProvider>
+            </section>
+          </main>
+        </div>
       </body>
     </html>
   );

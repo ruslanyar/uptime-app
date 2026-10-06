@@ -15,7 +15,7 @@ const { mutate, auth } = vi.hoisted(() => {
   };
 });
 vi.mock('@/components/auth-provider', () => ({ useAuth: () => auth }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 describe('auth forms', () => {
   beforeEach(() => {
     auth.status = 'anonymous';
