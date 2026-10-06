@@ -4,6 +4,10 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { errorMessage, AuthError } from '@/lib/auth/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert } from '@/components/ui/alert';
 import { validate, type FieldErrors } from '@/lib/auth/validation';
 
 export function AuthForm({
@@ -60,11 +64,11 @@ export function AuthForm({
   }
   return (
     <>
-      <form onSubmit={submit} noValidate>
+      <form onSubmit={submit} noValidate className="mt-8 space-y-5">
         {register && (
-          <div className="field">
-            <label htmlFor="name">Имя</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="name">Имя</Label>
+            <Input
               id="name"
               name="name"
               autoComplete="name"
@@ -73,15 +77,18 @@ export function AuthForm({
               aria-describedby={errors.name ? 'name-error' : undefined}
             />
             {errors.name && (
-              <p id="name-error" className="field-error">
+              <p
+                id="name-error"
+                className="text-xs leading-relaxed text-destructive"
+              >
                 {errors.name}
               </p>
             )}
           </div>
         )}
-        <div className="field">
-          <label htmlFor="email">Email</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email"
             name="email"
             type="email"
@@ -91,15 +98,19 @@ export function AuthForm({
             aria-describedby={errors.email ? 'email-error' : undefined}
           />
           {errors.email && (
-            <p id="email-error" className="field-error">
+            <p
+              id="email-error"
+              className="text-xs leading-relaxed text-destructive"
+            >
               {errors.email}
             </p>
           )}
         </div>
-        <div className="field">
-          <label htmlFor="password">Пароль</label>
-          <div className="password">
-            <input
+        <div className="space-y-2">
+          <Label htmlFor="password">Пароль</Label>
+          <div className="relative">
+            <Input
+              className="pr-24"
               id="password"
               name="password"
               type={show ? 'text' : 'password'}
@@ -110,31 +121,40 @@ export function AuthForm({
                 errors.password ? 'password-error' : 'password-hint'
               }
             />
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-1 right-1 h-9 px-2 text-xs text-primary"
               type="button"
               onClick={() => setShow(!show)}
               aria-label={show ? 'Скрыть пароль' : 'Показать пароль'}
             >
               {show ? 'Скрыть' : 'Показать'}
-            </button>
+            </Button>
           </div>
-          <p id="password-hint" className="hint">
+          <p
+            id="password-hint"
+            className="text-xs leading-relaxed text-muted-foreground"
+          >
             От 15 до 128 символов. Пробелы учитываются.
           </p>
           {errors.password && (
-            <p id="password-error" className="field-error">
+            <p
+              id="password-error"
+              className="text-xs leading-relaxed text-destructive"
+            >
               {errors.password}
             </p>
           )}
         </div>
         {message && (
-          <p className="notice" role="alert">
+          <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
             {message}
-          </p>
+          </Alert>
         )}
-        <button className="primary" disabled={pending} type="submit">
+        <Button className="w-full" disabled={pending} type="submit">
           {pending ? 'Подождите…' : register ? 'Создать аккаунт' : 'Войти'}
-        </button>
+        </Button>
       </form>
       {footer}
     </>

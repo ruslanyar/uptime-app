@@ -3,6 +3,8 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import nextTs from 'eslint-config-next/typescript';
 import prettier from 'eslint-config-prettier/flat';
 import stylistic from '@stylistic/eslint-plugin';
+import betterTailwindcss from 'eslint-plugin-better-tailwindcss';
+import { fileURLToPath } from 'node:url';
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -18,6 +20,23 @@ const eslintConfig = defineConfig([
         'error',
         { blankLine: 'always', prev: 'import', next: '*' },
         { blankLine: 'any', prev: 'import', next: 'import' },
+      ],
+    },
+  },
+  {
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    plugins: { 'better-tailwindcss': betterTailwindcss },
+    settings: {
+      'better-tailwindcss': {
+        cwd: fileURLToPath(new URL('.', import.meta.url)),
+        entryPoint: 'src/app/globals.css',
+        rootFontSize: 16,
+      },
+    },
+    rules: {
+      'better-tailwindcss/enforce-canonical-classes': [
+        'error',
+        { collapse: false },
       ],
     },
   },

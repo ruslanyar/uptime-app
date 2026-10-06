@@ -10,7 +10,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" className="dark">
       <body>
         <AuthProvider>{children}</AuthProvider>
       </body>

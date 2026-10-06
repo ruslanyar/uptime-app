@@ -9,7 +9,10 @@ async function register(page: Page, screenshot?: string) {
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill(password);
   if (screenshot)
-    await page.screenshot({ path: `test-results/register-${screenshot}.png` });
+    await page.screenshot({
+      animations: 'disabled',
+      path: `test-results/register-${screenshot}.png`,
+    });
   const historyLength = await page.evaluate(() => history.length);
   await page.getByRole('button', { name: 'Создать аккаунт' }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -51,14 +54,14 @@ test('registration, reload, HttpOnly cookies, storage, logout and login', async 
     })),
   ).toEqual({ cookie: '', local: [], session: [] });
   await page.reload();
-  await page.locator('summary').click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'Мой профиль' }).click();
+  await page.getByRole('menuitem', { name: 'Мой профиль' }).click();
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByText(email, { exact: true })).toBeVisible();
   await page.goto('/');
-  await page.locator('summary').click();
-  await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
+  await page.getByRole('menuitem', { name: 'Выйти', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
     await context.cookies(apiURL(secure) + '/api/v1/auth/me'),
@@ -66,21 +69,25 @@ test('registration, reload, HttpOnly cookies, storage, logout and login', async 
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill(password);
   await page.screenshot({
+    animations: 'disabled',
     path: `test-results/login-${info.project.name}.png`,
   });
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.screenshot({
+    animations: 'disabled',
     path: `test-results/dashboard-desktop-${info.project.name}.png`,
   });
-  await page.locator('summary').focus();
+  await page.getByRole('button', { name: 'Меню пользователя' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText(email, { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByText(email, { exact: true })).not.toBeVisible();
-  await expect(page.locator('summary')).toBeFocused();
+  await expect(
+    page.getByRole('button', { name: 'Меню пользователя' }),
+  ).toBeFocused();
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.locator('summary').click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
   expect(
     await page.evaluate(
@@ -88,6 +95,7 @@ test('registration, reload, HttpOnly cookies, storage, logout and login', async 
     ),
   ).toBe(true);
   await page.screenshot({
+    animations: 'disabled',
     path: `test-results/dashboard-${info.project.name}.png`,
   });
 });
@@ -119,15 +127,15 @@ test('simultaneous tabs restore expired access with one refresh and synchronize 
     { ...access, value: `${header}.${payload}.${signature}` },
   ]);
   await Promise.all([page.reload(), other.reload()]);
-  await page.locator('summary').click();
-  await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Выйти' })).toBeVisible();
   await expect(other.getByRole('button', { name: 'Выйти' })).toBeVisible();
   expect(refreshes).toBe(1);
   const rotated = await context.cookies(apiURL(secure) + '/api/v1/auth/me');
   expect(
     rotated.find((cookie) => cookie.name === 'refresh_token')?.value,
   ).not.toBe(original.find((cookie) => cookie.name === 'refresh_token')?.value);
-  await page.getByRole('button', { name: 'Выйти' }).click();
+  await page.getByRole('menuitem', { name: 'Выйти' }).click();
   await expect(other).toHaveURL(/\/login$/);
 });
 test('invalid refresh ends session', async ({ page, context }, info) => {
@@ -198,15 +206,15 @@ test('network errors preserve the page and allow explicit recovery', async ({
   await expect(page).toHaveURL(/\/$/);
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Повторить проверку' }).click();
-  await page.locator('summary').click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
   await expect(page.getByText(email, { exact: true })).toBeVisible();
 });
 test('duplicate email and incorrect password show distinct errors', async ({
   page,
 }) => {
   const email = await register(page);
-  await page.locator('summary').click();
-  await page.getByRole('button', { name: 'Выйти' }).click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
+  await page.getByRole('menuitem', { name: 'Выйти' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill('wrong password 12345');
@@ -285,9 +293,12 @@ for (const [path, title, description] of [
       await expect(page.getByText(description, { exact: true })).toBeVisible();
       await expect(page.getByRole('status')).toHaveText('Проверяем сессию…');
       await expect(page.locator('input')).toHaveCount(0);
-      await expect(page.locator('.profile')).toHaveCount(0);
-      await expect(page.locator('.footer-link')).toHaveCount(0);
+      await expect(page.getByRole('definition')).toHaveCount(0);
+      await expect(
+        page.getByRole('link', { name: /Зарегистрироваться|Войти/ }),
+      ).toHaveCount(0);
       await page.screenshot({
+        animations: 'disabled',
         path: `test-results/initial-${path.slice(1)}-${new URL(baseURL!).protocol.slice(0, -1)}.png`,
       });
     } finally {
@@ -308,10 +319,136 @@ test('root and form routes follow current session state', async ({ page }) => {
     ).toBeVisible();
   }
   const historyLength = await page.evaluate(() => history.length);
-  await page.locator('summary').click();
-  await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
+  await page.getByRole('menuitem', { name: 'Выйти', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await page.goto('/account');
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test('dark UI stays responsive with long account details', async ({
+  page,
+}, info) => {
+  const name = 'Анна'.repeat(20);
+  const email = `long-${Date.now()}-${'a'.repeat(40)}@example.com`;
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/register');
+  await page.getByLabel('Имя', { exact: true }).fill(name);
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Пароль', { exact: true }).fill(password);
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      animations: 'disabled',
+      path: `test-results/ui-register-${width}-${info.project.name}.png`,
+      fullPage: true,
+    });
+  }
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const path of ['/', '/account']) {
+      await page.goto(path);
+      await expect(
+        page.getByRole('heading', { name: `Здравствуйте, ${name}` }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await page.evaluate(
+          () => getComputedStyle(document.body).backgroundColor,
+        ),
+      ).toBe('rgb(9, 11, 8)');
+      await page.screenshot({
+        animations: 'disabled',
+        path: `test-results/ui-${path === '/' ? 'dashboard' : 'account'}-${width}-${info.project.name}.png`,
+        fullPage: true,
+      });
+      if (path === '/') {
+        const trigger = page.getByRole('button', { name: 'Меню пользователя' });
+        await trigger.click();
+        await expect(page.getByText(email, { exact: true })).toBeVisible();
+        const panel = await page.getByRole('menu').boundingBox();
+        expect(panel).not.toBeNull();
+        expect(panel!.x).toBeGreaterThanOrEqual(0);
+        expect(panel!.x + panel!.width).toBeLessThanOrEqual(width);
+        await page.screenshot({
+          animations: 'disabled',
+          path: `test-results/ui-menu-${width}-${info.project.name}.png`,
+          fullPage: true,
+        });
+        await page
+          .getByRole('heading', { name: 'Мониторинг скоро появится' })
+          .click();
+        await expect(page.getByRole('menu')).not.toBeVisible();
+      }
+    }
+  }
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Пароль', { exact: true }).fill(password);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      animations: 'disabled',
+      path: `test-results/ui-login-${width}-${info.project.name}.png`,
+      fullPage: true,
+    });
+  }
+});
+
+test('menu logout exposes pending state and keeps failures visible', async ({
+  page,
+}, info) => {
+  await register(page);
+  let finish!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  await page.route('**/api/v1/auth/logout', async (route) => {
+    await gate;
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: '{}',
+    });
+  });
+  const trigger = page.getByRole('button', { name: 'Меню пользователя' });
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('menuitem', { name: 'Мой профиль' }),
+  ).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(
+    page.getByRole('menuitem', { name: 'Выйти', exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('menuitem', { name: 'Выходим…' }),
+  ).toHaveAttribute('aria-disabled', 'true');
+  finish();
+  await expect(page.locator('main').getByRole('alert')).toBeVisible();
+  await expect(
+    page.getByRole('menuitem', { name: 'Выйти', exact: true }),
+  ).not.toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('main').getByRole('alert')).toBeVisible();
+  await page.screenshot({
+    animations: 'disabled',
+    path: `test-results/ui-logout-error-${info.project.name}.png`,
+    fullPage: true,
+  });
 });

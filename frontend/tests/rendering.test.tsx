@@ -42,11 +42,12 @@ describe('server content and session navigation', () => {
     'renders public content before session verification',
     (Page, title, description) => {
       const html = renderToString(<Page />);
-      expect(html).toContain(`<h1>${title}</h1>`);
+      expect(html).toMatch(new RegExp(`<h1[^>]*>${title}</h1>`));
       expect(html).toContain(description);
       expect(html).toContain('Проверяем сессию…');
       expect(html).not.toContain('<input');
-      expect(html).not.toContain('footer-link');
+      expect(html).not.toContain('href="/register"');
+      expect(html).not.toContain('href="/login"');
       expect(redirect).not.toHaveBeenCalled();
     },
   );
@@ -57,7 +58,7 @@ describe('server content and session navigation', () => {
       auth.status = 'anonymous';
       const html = renderToString(<Page />);
       expect(html).toContain('<input');
-      expect(html).toContain('footer-link');
+      expect(html).toMatch(/href="\/(login|register)"/);
       expect(redirect).not.toHaveBeenCalled();
     },
   );
@@ -102,7 +103,7 @@ describe('server content and session navigation', () => {
       ]) {
         const html = renderToString(element);
         expect(html).not.toContain('<input');
-        expect(html).not.toContain('profile');
+        expect(html).not.toContain('Данные аккаунта');
       }
       expect(redirect).not.toHaveBeenCalled();
     },
