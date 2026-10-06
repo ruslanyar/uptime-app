@@ -1,0 +1,6 @@
+# Local launcher state, secrets and compiled binaries
+/.dev/
+/node_modules/
+.env
+.env.*
+npm-debug.log*
