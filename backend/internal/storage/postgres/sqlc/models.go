@@ -26,4 +26,5 @@ type User struct {
 	Name         string
 	Email        string
 	PasswordHash string
+	AvatarUrl    string
 }

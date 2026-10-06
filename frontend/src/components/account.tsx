@@ -3,6 +3,8 @@ import { useRef, useState } from 'react';
 import { redirect } from 'next/navigation';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
+import { Avatar } from './avatar';
+import { AvatarField } from './avatar-field';
 import { Eyebrow, PageHeading } from '@/components/page-shell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +18,9 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   const [message, setMessage] = useState('');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState<File>();
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [savedAvatar, setSavedAvatar] = useState(false);
   const [nameError, setNameError] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -48,7 +53,14 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
     setMessage('');
     setSaved(false);
     try {
-      await auth.session.mutate('profile', { name: value });
+      await auth.session.mutate('profile', {
+        name: value,
+        ...(avatar ? { avatar } : {}),
+        ...(removeAvatar ? { remove_avatar: true } : {}),
+      });
+      setSavedAvatar(!!avatar || removeAvatar);
+      setAvatar(undefined);
+      setRemoveAvatar(false);
       setEditing(false);
       setSaved(true);
     } catch (error) {
@@ -76,6 +88,9 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
       <Eyebrow>Личный аккаунт</Eyebrow>
       <PageHeading>Здравствуйте, {user.name}</PageHeading>
       <p className="text-sm text-muted-foreground">Вы вошли в свой аккаунт.</p>
+      <div className="mt-6">
+        <Avatar url={user.avatar_url} />
+      </div>
       <dl aria-label="Данные аккаунта" className="my-7 space-y-2 border-y py-6">
         <dt className="font-mono text-xs text-muted-foreground">Имя</dt>
         <dd className="pb-3 text-sm wrap-anywhere last:pb-0">{user.name}</dd>
@@ -86,6 +101,20 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
       </dl>
       {editing ? (
         <form onSubmit={save} noValidate className="mb-7 space-y-4">
+          <AvatarField
+            url={user.avatar_url}
+            file={avatar}
+            removed={removeAvatar}
+            disabled={saving || pending}
+            onChange={(file) => {
+              setAvatar(file);
+              if (file) setRemoveAvatar(false);
+            }}
+            onRemove={() => {
+              setAvatar(undefined);
+              setRemoveAvatar(true);
+            }}
+          />
           <div className="space-y-2">
             <Label htmlFor="profile-name">Имя</Label>
             <Input
@@ -122,6 +151,8 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
               disabled={saving || pending}
               onClick={() => {
                 setEditing(false);
+                setAvatar(undefined);
+                setRemoveAvatar(false);
                 setNameError('');
               }}
             >
@@ -135,6 +166,8 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
           disabled={pending || saving}
           onClick={() => {
             setName(user.name);
+            setAvatar(undefined);
+            setRemoveAvatar(false);
             setEditing(true);
             setNameError('');
             setSaved(false);
@@ -145,7 +178,7 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
       )}
       {saved && (
         <p role="status" className="mb-4 text-sm text-primary">
-          Имя сохранено.
+          {savedAvatar ? 'Профиль сохранён.' : 'Имя сохранено.'}
         </p>
       )}
       {message && (

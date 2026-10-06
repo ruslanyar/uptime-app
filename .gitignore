@@ -9,3 +9,8 @@ npm-debug.log*
 !.env.example
 !.env.development
 !.env.test
+
+/docs/tasks
+
+# Uploaded profile images
+/backend/uploads/

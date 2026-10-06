@@ -1,5 +1,10 @@
-export type User = { id: string; name: string; email: string };
-export type Profile = { name: string };
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url?: string;
+};
+export type Profile = { name: string; avatar?: File; remove_avatar?: boolean };
 export type Credentials = { email: string; password: string; name?: string };
 
 export class AuthError extends Error {
@@ -46,7 +51,20 @@ function user(value: unknown): User {
     typeof v.email !== 'string'
   )
     throw new AuthError('protocol');
-  return { id: v.id, name: v.name, email: v.email };
+  if (
+    v.avatar_url !== undefined &&
+    (typeof v.avatar_url !== 'string' ||
+      !/^\/api\/v1\/avatars\/[a-fA-F0-9-]{36}\.(jpg|png|gif|webp)$/.test(
+        v.avatar_url,
+      ))
+  )
+    throw new AuthError('protocol');
+  return {
+    id: v.id,
+    name: v.name,
+    email: v.email,
+    ...(v.avatar_url ? { avatar_url: v.avatar_url as string } : {}),
+  };
 }
 
 export class AuthAPI {
@@ -60,6 +78,12 @@ export class AuthAPI {
     body?: Credentials | Profile,
   ): Promise<User | undefined> {
     const base = this.origin();
+    let payload: FormData | string | undefined;
+    if (path === 'profile' && body && 'avatar' in body && body.avatar) {
+      payload = new FormData();
+      payload.set('name', body.name!);
+      payload.set('avatar', body.avatar);
+    } else if (body) payload = JSON.stringify(body);
     let response: Response;
     try {
       response = await this.request(`${base}/api/v1/auth/${path}`, {
@@ -71,9 +95,11 @@ export class AuthAPI {
             ? {}
             : {
                 'X-CSRF-Protection': '1',
-                ...(body ? { 'Content-Type': 'application/json' } : {}),
+                ...(typeof payload === 'string'
+                  ? { 'Content-Type': 'application/json' }
+                  : {}),
               },
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        ...(payload ? { body: payload } : {}),
       });
     } catch {
       throw new AuthError('network');
@@ -102,6 +128,7 @@ export function errorMessage(error: unknown): string {
     return 'Браузер не поддерживает безопасную работу с сессией. Используйте современный браузер и разрешите хранилище сайта.';
   if (error.kind === 'cookies')
     return 'Не удалось сохранить сессию. Разрешите cookies для этого сайта, включая сторонние cookies, и повторите вход.';
+  if (error.status === 413) return 'Размер аватара не должен превышать 500 КБ.';
   if (error.status === 400) return 'Проверьте введённые данные.';
   if (error.status === 401) return 'Неверный email или пароль.';
   if (error.status === 403)

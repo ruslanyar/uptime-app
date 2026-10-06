@@ -267,3 +267,25 @@ describe('session coordination', () => {
     expect(sync.broadcast).not.toHaveBeenCalledWith('logout');
   });
 });
+
+it('sends avatars as multipart without setting the boundary header and retains avatar URLs', async () => {
+  const avatar_url =
+    '/api/v1/avatars/00000000-0000-4000-8000-000000000001.webp';
+  const fetcher = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(JSON.stringify({ user: { ...user, avatar_url } })),
+    );
+  const api = new AuthAPI(() => 'http://localhost:8080', fetcher);
+  const avatar = new File(['webp'], 'avatar.webp', { type: 'image/webp' });
+  expect(await api.call('profile', { name: 'Иван', avatar })).toEqual({
+    ...user,
+    avatar_url,
+  });
+  const request = fetcher.mock.calls[0][1];
+  expect(request.headers).toEqual({ 'X-CSRF-Protection': '1' });
+  expect(request.credentials).toBe('include');
+  expect(request.body).toBeInstanceOf(FormData);
+  expect(request.body.get('name')).toBe('Иван');
+  expect(request.body.get('avatar')).toEqual(avatar);
+});

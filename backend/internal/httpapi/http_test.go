@@ -258,7 +258,7 @@ func TestJSONAndMe(t *testing.T) {
 	}
 }
 
-func (f *fakeService) UpdateProfile(_ context.Context, token, name string) (auth.User, error) {
+func (f *fakeService) UpdateProfile(_ context.Context, token, name string, avatarURL ...string) (auth.User, error) {
 	f.calls++
 	f.meToken = token
 	return auth.User{ID: "id", Name: name, Email: "user@example.com"}, f.err

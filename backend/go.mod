@@ -8,6 +8,7 @@ require (
 	github.com/jackc/tern/v2 v2.4.3
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.57.0
+	golang.org/x/image v0.46.0
 )
 
 require (

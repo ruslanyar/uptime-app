@@ -24,14 +24,14 @@ func TestMigrations(t *testing.T) {
 		if e != nil {
 			t.Fatal(operation, e)
 		}
-		want := int32(1)
+		want := int32(2)
 		if operation == "down" {
-			want = 0
+			want = 1
 		}
 		if i == 0 {
 			want = 0
 		}
-		if s.Current != want || s.Target != 1 {
+		if s.Current != want || s.Target != 2 {
 			t.Fatal(operation, s)
 		}
 	}
@@ -42,32 +42,36 @@ func TestMigrations(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	extended := fstest.MapFS{"00001_create_auth_tables.sql": &fstest.MapFile{Data: initial}, "00002_add_column.sql": &fstest.MapFile{Data: []byte("ALTER TABLE users ADD COLUMN note text;\n---- create above / drop below ----\nALTER TABLE users DROP COLUMN note;")}}
+	avatar, e := os.ReadFile("../../migrations/00002_add_user_avatar.sql")
+	if e != nil {
+		t.Fatal(e)
+	}
+	extended := fstest.MapFS{"00002_add_user_avatar.sql": &fstest.MapFile{Data: avatar}, "00001_create_auth_tables.sql": &fstest.MapFile{Data: initial}, "00003_add_column.sql": &fstest.MapFile{Data: []byte("ALTER TABLE users ADD COLUMN note text;\n---- create above / drop below ----\nALTER TABLE users DROP COLUMN note;")}}
 	s, e := migrations.Run(ctx, conn, extended, "up")
-	if e != nil || s.Current != 2 {
+	if e != nil || s.Current != 3 {
 		t.Fatal(s, e)
 	}
 	var name string
 	if e = pool.QueryRow(ctx, "SELECT name FROM users").Scan(&name); e != nil || name != "Name" {
 		t.Fatal(name, e)
 	}
-	extended["00003_failure.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE rolled_back(id int); SELECT 1/0;\n---- create above / drop below ----\nDROP TABLE rolled_back;")}
+	extended["00004_failure.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE rolled_back(id int); SELECT 1/0;\n---- create above / drop below ----\nDROP TABLE rolled_back;")}
 	if _, e = migrations.Run(ctx, conn, extended, "up"); e == nil {
 		t.Fatal("bad migration passed")
 	}
 	s, e = migrations.Run(ctx, conn, extended, "status")
-	if e != nil || s.Current != 2 {
+	if e != nil || s.Current != 3 {
 		t.Fatal(s, e)
 	}
 	var exists bool
 	if e = pool.QueryRow(ctx, "SELECT to_regclass('public.rolled_back') IS NOT NULL").Scan(&exists); e != nil || exists {
 		t.Fatal("failed migration persisted", e)
 	}
-	delete(extended, "00003_failure.sql")
-	if s, e = migrations.Run(ctx, conn, extended, "down"); e != nil || s.Current != 1 {
+	delete(extended, "00004_failure.sql")
+	if s, e = migrations.Run(ctx, conn, extended, "down"); e != nil || s.Current != 2 {
 		t.Fatal(s, e)
 	}
-	if s, e = migrations.Run(ctx, conn, extended, "up"); e != nil || s.Current != 2 {
+	if s, e = migrations.Run(ctx, conn, extended, "up"); e != nil || s.Current != 3 {
 		t.Fatal(s, e)
 	}
 }

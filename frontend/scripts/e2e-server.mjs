@@ -157,7 +157,11 @@ try {
   created = true;
   const databaseURL = new URL(backendEnv.TEST_DATABASE_URL);
   databaseURL.pathname = `/${database}`;
-  const env = { ...backendEnv, DATABASE_URL: databaseURL.href };
+  const env = {
+    ...backendEnv,
+    DATABASE_URL: databaseURL.href,
+    AVATAR_DIR: join(temporary, 'avatars'),
+  };
   await command('go', ['run', './cmd/migrate', 'up'], { cwd: backend, env });
   const binary = join(temporary, 'api');
   await command('go', ['build', '-o', binary, './cmd/api'], { cwd: backend });
@@ -181,23 +185,6 @@ try {
       COOKIE_SAME_SITE: 'none',
     },
   });
-  const next = resolve('node_modules/next/dist/bin/next');
-  start(process.execPath, [next, 'dev', '-p', frontendURL.port], {
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      NEXT_PUBLIC_API_URL: apiURL.origin,
-      E2E_DIST_DIR: '.next-e2e-http',
-    },
-  });
-  start(process.execPath, [next, 'dev', '-p', httpsFrontendPort], {
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      NEXT_PUBLIC_API_URL: httpsApiURL.origin,
-      E2E_DIST_DIR: '.next-e2e-https',
-    },
-  });
   await command(
     'openssl',
     [
@@ -214,6 +201,8 @@ try {
       '1',
       '-subj',
       '/CN=frontend-e2e',
+      '-addext',
+      'subjectAltName=DNS:frontend.auth-client.test,DNS:api.auth-service.test',
     ],
     { stdio: 'ignore' },
   );
@@ -221,6 +210,25 @@ try {
     key: await readFile(join(temporary, 'key.pem')),
     cert: await readFile(join(temporary, 'cert.pem')),
   };
+  const next = resolve('node_modules/next/dist/bin/next');
+  start(process.execPath, [next, 'dev', '-p', frontendURL.port], {
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+      NEXT_PUBLIC_API_URL: apiURL.origin,
+      E2E_DIST_DIR: '.next-e2e-http',
+    },
+  });
+  start(process.execPath, [next, 'dev', '-p', httpsFrontendPort], {
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+      NEXT_PUBLIC_API_URL: httpsApiURL.origin,
+      E2E_DIST_DIR: '.next-e2e-https',
+      NODE_EXTRA_CA_CERTS: join(temporary, 'cert.pem'),
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${resolve('scripts/e2e-dns.mjs')}`,
+    },
+  });
   for (const [port, target] of [
     [Number(httpsFrontendURL.port), Number(httpsFrontendPort)],
     [Number(httpsApiURL.port), Number(httpsApiPort)],

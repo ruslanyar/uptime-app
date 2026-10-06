@@ -98,7 +98,7 @@ func TestService(t *testing.T) {
 	}
 }
 
-func (s *stubStore) UpdateName(_ context.Context, id, name string) (User, error) {
+func (s *stubStore) UpdateName(_ context.Context, id, name string, avatarURL ...string) (User, error) {
 	if id != s.account.ID {
 		return User{}, ErrUnauthorized
 	}
@@ -106,6 +106,9 @@ func (s *stubStore) UpdateName(_ context.Context, id, name string) (User, error)
 		return User{}, s.err
 	}
 	s.account.Name = name
+	if len(avatarURL) > 0 {
+		s.account.AvatarURL = avatarURL[0]
+	}
 	return s.account.User, nil
 }
 func TestUpdateProfile(t *testing.T) {

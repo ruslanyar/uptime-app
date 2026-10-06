@@ -18,4 +18,4 @@ UPDATE refresh_tokens SET used_at=$2 WHERE hash=$1;
 UPDATE sessions SET revoked=true WHERE id=$1;
 
 -- name: UpdateUserName :one
-UPDATE users SET name = $2 WHERE id = $1 RETURNING *;
+UPDATE users SET name = $2, avatar_url = COALESCE(sqlc.narg(avatar_url)::text, avatar_url) WHERE id = $1 RETURNING *;

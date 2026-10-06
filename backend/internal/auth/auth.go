@@ -23,9 +23,10 @@ const AccessTTL = 24 * time.Hour
 const SessionTTL = 30 * 24 * time.Hour
 
 type User struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 type Account struct {
 	User
@@ -39,7 +40,7 @@ type Store interface {
 	Register(context.Context, Account, Session, []byte) error
 	ByEmail(context.Context, string) (Account, error)
 	ByID(context.Context, string) (User, error)
-	UpdateName(context.Context, string, string) (User, error)
+	UpdateName(context.Context, string, string, ...string) (User, error)
 	CreateSession(context.Context, Session, []byte) error
 	Rotate(context.Context, []byte, []byte) (User, Session, error)
 	Logout(context.Context, []byte) error
@@ -130,7 +131,7 @@ func (s *Service) Register(ctx context.Context, name, email, password string) (R
 	if e != nil {
 		return Result{}, e
 	}
-	u := User{NewID(), name, email}
+	u := User{ID: NewID(), Name: name, Email: email}
 	session := Session{NewID(), u.ID, time.Now().Add(SessionTTL)}
 	raw, hash, e := refresh()
 	if e != nil {
@@ -207,8 +208,8 @@ func (s *Service) Me(ctx context.Context, raw string) (User, error) {
 	return s.store.ByID(ctx, id)
 }
 
-// UpdateProfile changes only the name of the user identified by the access token.
-func (s *Service) UpdateProfile(ctx context.Context, raw, name string) (User, error) {
+// UpdateProfile changes the name and, when supplied, the avatar URL of the authenticated user.
+func (s *Service) UpdateProfile(ctx context.Context, raw, name string, avatarURL ...string) (User, error) {
 	id, e := s.tokens.Verify(raw)
 	if e != nil {
 		return User{}, ErrUnauthorized
@@ -217,5 +218,5 @@ func (s *Service) UpdateProfile(ctx context.Context, raw, name string) (User, er
 	if !utf8.ValidString(name) || utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 50 {
 		return User{}, ErrInvalid
 	}
-	return s.store.UpdateName(ctx, id, name)
+	return s.store.UpdateName(ctx, id, name, avatarURL...)
 }

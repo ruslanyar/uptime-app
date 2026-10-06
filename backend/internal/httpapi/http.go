@@ -3,6 +3,7 @@ package httpapi
 
 import (
 	"net/http"
+	"uptime-app/backend/internal/avatar"
 
 	"uptime-app/backend/internal/config"
 	authcontroller "uptime-app/backend/internal/controllers/auth"
@@ -20,5 +21,6 @@ func New(service Service, cfg config.Config) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/logout", controller.Logout)
 	mux.HandleFunc("GET /api/v1/auth/me", controller.Me)
 	mux.HandleFunc("POST /api/v1/auth/profile", controller.UpdateProfile)
+	mux.HandleFunc("GET /api/v1/avatars/{filename}", avatar.Serve(cfg.AvatarDir))
 	return protect(cfg, mux)
 }

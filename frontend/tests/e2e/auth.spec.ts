@@ -509,3 +509,179 @@ test('profile name persists and updates another tab', async ({
   ).toBeVisible();
   await other.close();
 });
+
+test('avatar selection, drop, replacement and persistence', async ({
+  page,
+  context,
+}, info) => {
+  await register(page);
+  await page.goto('/account');
+  const other = await context.newPage();
+  await other.goto('/account');
+  await expect(
+    other.getByRole('button', { name: 'Редактировать профиль' }),
+  ).toBeVisible();
+  await page.bringToFront();
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  // Generate real, decodable raster images in the browser.
+  const image = async (format: string, color: string) =>
+    page.evaluate(
+      ({ format, color }) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 32;
+        const ctx = canvas.getContext('2d')!;
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 32, 32);
+        return canvas.toDataURL(format).split(',')[1];
+      },
+      { format, color },
+    );
+  const png = await image('image/png', '#72cf87');
+  await page.getByLabel('Выбрать аватар').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(png, 'base64'),
+  });
+  await expect(page.getByAltText('Предпросмотр аватара')).toBeVisible();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Профиль сохранён.');
+  const firstURL = await page
+    .getByAltText('Аватар', { exact: true })
+    .getAttribute('src');
+  const firstSource = new URL(firstURL!, page.url()).searchParams.get('url')!;
+  await expect(other.getByAltText('Аватар', { exact: true })).toHaveAttribute(
+    'src',
+    firstURL!,
+  );
+  await page.reload();
+  await expect(page.getByAltText('Аватар', { exact: true })).toHaveAttribute(
+    'src',
+    firstURL!,
+  );
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  await page.getByLabel('Выбрать аватар').setInputFiles({
+    name: 'large.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(500 * 1024 + 1),
+  });
+  await expect(page.locator('main').getByRole('alert')).toContainText('500 КБ');
+  const webp = await image('image/webp', '#ca76df');
+  const transfer = await page.evaluateHandle((encoded) => {
+    const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
+    const data = new DataTransfer();
+    data.items.add(
+      new File([bytes], 'replacement.webp', { type: 'image/webp' }),
+    );
+    return data;
+  }, webp);
+  await page
+    .getByLabel('Поле аватара')
+    .dispatchEvent('drop', { dataTransfer: transfer });
+  await transfer.dispose();
+  await expect(page.getByText('replacement.webp')).toBeVisible();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.screenshot({
+      path: `test-results/avatar-edit-${width}-${info.project.name}.png`,
+      fullPage: true,
+    });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Профиль сохранён.');
+  const avatar = page.getByAltText('Аватар', { exact: true });
+  await expect(avatar).toHaveAttribute('src', /\/_next\/image\?url=.*\.webp/);
+  expect(await avatar.getAttribute('src')).not.toBe(firstURL);
+  await expect
+    .poll(() =>
+      avatar.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    )
+    .toBe(32);
+  await expect(other.getByAltText('Аватар', { exact: true })).toHaveAttribute(
+    'src',
+    (await avatar.getAttribute('src'))!,
+  );
+  expect(
+    await page.evaluate(
+      async (url) => (await fetch(url, { cache: 'no-store' })).status,
+      firstSource,
+    ),
+  ).toBe(404);
+  await page.reload();
+  await expect(page.getByAltText('Аватар', { exact: true })).toHaveAttribute(
+    'src',
+    /\/_next\/image\?url=.*\.webp/,
+  );
+  await page.screenshot({
+    path: `test-results/avatar-account-${info.project.name}.png`,
+    fullPage: true,
+  });
+  const savedURL = await page
+    .getByAltText('Аватар', { exact: true })
+    .getAttribute('src');
+  const savedSource = new URL(savedURL!, page.url()).searchParams.get('url')!;
+  await page.goto('/');
+  const menu = page.getByRole('button', { name: 'Меню пользователя' });
+  const headerAvatar = menu.getByAltText('Аватар');
+  await expect(headerAvatar).toHaveAttribute('src', /\/_next\/image\?url=/);
+  expect(
+    new URL(
+      (await headerAvatar.getAttribute('src'))!,
+      page.url(),
+    ).searchParams.get('url'),
+  ).toBe(savedSource);
+  await expect
+    .poll(() =>
+      headerAvatar.evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    )
+    .toBe(32);
+  await expect(headerAvatar).toHaveAttribute('width', '36');
+  const bounds = await headerAvatar.locator('..').boundingBox();
+  expect(bounds?.width).toBe(36);
+  expect(bounds?.height).toBe(36);
+  await page.screenshot({
+    path: `test-results/avatar-header-${info.project.name}.png`,
+    fullPage: true,
+  });
+  await menu.click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Мой профиль' }),
+  ).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Мой профиль' }).click();
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  await page.getByRole('button', { name: 'Удалить аватар' }).click();
+  await expect(
+    page.getByText('Аватар будет удалён после сохранения профиля.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(page.getByAltText('Аватар', { exact: true })).toHaveAttribute(
+    'src',
+    savedURL!,
+  );
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  await page.getByRole('button', { name: 'Удалить аватар' }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Профиль сохранён.');
+  await expect(page.getByAltText('Аватар', { exact: true })).toHaveCount(0);
+  await expect(other.getByAltText('Аватар', { exact: true })).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      async (url) => (await fetch(url, { cache: 'no-store' })).status,
+      savedSource,
+    ),
+  ).toBe(404);
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Редактировать профиль' }),
+  ).toBeVisible();
+  await expect(page.getByAltText('Аватар', { exact: true })).toHaveCount(0);
+  await page.goto('/');
+  await expect(menu).toBeVisible();
+  await expect(menu.getByAltText('Аватар')).toHaveCount(0);
+  await expect(menu).toContainText('А');
+  await other.close();
+});

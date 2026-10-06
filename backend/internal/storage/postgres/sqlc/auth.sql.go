@@ -41,7 +41,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error 
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email, password_hash
+INSERT INTO users (id, name, email, password_hash) VALUES ($1,$2,$3,$4) RETURNING id, name, email, password_hash, avatar_url
 `
 
 type CreateUserParams struct {
@@ -64,6 +64,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -105,22 +106,24 @@ func (q *Queries) TokenByHash(ctx context.Context, hash []byte) (RefreshToken, e
 }
 
 const updateUserName = `-- name: UpdateUserName :one
-UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name, email, password_hash
+UPDATE users SET name = $2, avatar_url = COALESCE($3::text, avatar_url) WHERE id = $1 RETURNING id, name, email, password_hash, avatar_url
 `
 
 type UpdateUserNameParams struct {
-	ID   pgtype.UUID
-	Name string
+	ID        pgtype.UUID
+	Name      string
+	AvatarUrl pgtype.Text
 }
 
 func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserName, arg.ID, arg.Name)
+	row := q.db.QueryRow(ctx, updateUserName, arg.ID, arg.Name, arg.AvatarUrl)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
@@ -140,7 +143,7 @@ func (q *Queries) UseToken(ctx context.Context, arg UseTokenParams) error {
 }
 
 const userByEmail = `-- name: UserByEmail :one
-SELECT id, name, email, password_hash FROM users WHERE email=$1
+SELECT id, name, email, password_hash, avatar_url FROM users WHERE email=$1
 `
 
 func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
@@ -151,12 +154,13 @@ func (q *Queries) UserByEmail(ctx context.Context, email string) (User, error) {
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const userByID = `-- name: UserByID :one
-SELECT id, name, email, password_hash FROM users WHERE id=$1
+SELECT id, name, email, password_hash, avatar_url FROM users WHERE id=$1
 `
 
 func (q *Queries) UserByID(ctx context.Context, id pgtype.UUID) (User, error) {
@@ -167,6 +171,7 @@ func (q *Queries) UserByID(ctx context.Context, id pgtype.UUID) (User, error) {
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
 }

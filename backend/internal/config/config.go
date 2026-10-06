@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	DatabaseURL, HTTPAddr, JWTSecret, JWTIssuer, JWTAudience string
+	AvatarDir                                                string
 	AllowedOrigins                                           map[string]bool
 	CookieSecure                                             bool
 	CookieSameSite                                           http.SameSite
@@ -42,6 +43,10 @@ func Read(get func(string) string) (Config, error) {
 	u, e := url.Parse(c.DatabaseURL)
 	if e != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
 		return c, fmt.Errorf("DATABASE_URL must be a PostgreSQL URL")
+	}
+	c.AvatarDir = get("AVATAR_DIR")
+	if c.AvatarDir == "" {
+		c.AvatarDir = "uploads/avatars"
 	}
 	if c.HTTPAddr == "" {
 		c.HTTPAddr = ":8080"

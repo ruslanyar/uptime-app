@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SessionStatus } from '@/components/session-status';
+import { Avatar } from '@/components/avatar';
 import { errorMessage, type User } from '@/lib/auth/api';
 
 export function Dashboard() {
@@ -67,12 +68,7 @@ export function Dashboard() {
               aria-label="Меню пользователя"
               className="h-auto min-w-0 gap-3 px-2 py-2"
             >
-              <span
-                aria-hidden="true"
-                className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/25 bg-primary/10 text-primary uppercase"
-              >
-                {Array.from(user.name.trim())[0]}
-              </span>
+              <Avatar url={user.avatar_url} name={user.name} size="sm" />
               <span className="max-w-25 truncate sm:max-w-45">{user.name}</span>
               <ChevronDown
                 aria-hidden="true"

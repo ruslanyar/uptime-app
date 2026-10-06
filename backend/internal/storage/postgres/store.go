@@ -21,7 +21,9 @@ type Store struct {
 func New(pool *pgxpool.Pool) *Store { return &Store{pool, sqlc.New(pool)} }
 func uuid(id string) pgtype.UUID    { var u pgtype.UUID; _ = u.Scan(id); return u }
 func id(u pgtype.UUID) string       { v, _ := u.Value(); return v.(string) }
-func user(u sqlc.User) auth.User    { return auth.User{ID: id(u.ID), Name: u.Name, Email: u.Email} }
+func user(u sqlc.User) auth.User {
+	return auth.User{ID: id(u.ID), Name: u.Name, Email: u.Email, AvatarURL: u.AvatarUrl}
+}
 func storageError(e error) error {
 	if errors.Is(e, pgx.ErrNoRows) {
 		return auth.ErrUnauthorized
@@ -156,8 +158,12 @@ func (s *Store) Logout(ctx context.Context, hash []byte) error {
 	return tx.Commit(ctx)
 }
 
-func (s *Store) UpdateName(ctx context.Context, userID, name string) (auth.User, error) {
-	u, e := s.q.UpdateUserName(ctx, sqlc.UpdateUserNameParams{ID: uuid(userID), Name: name})
+func (s *Store) UpdateName(ctx context.Context, userID, name string, avatarURL ...string) (auth.User, error) {
+	var avatar pgtype.Text
+	if len(avatarURL) > 0 {
+		avatar = pgtype.Text{String: avatarURL[0], Valid: true}
+	}
+	u, e := s.q.UpdateUserName(ctx, sqlc.UpdateUserNameParams{ID: uuid(userID), Name: name, AvatarUrl: avatar})
 	if e != nil {
 		return auth.User{}, storageError(e)
 	}
