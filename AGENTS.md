@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains two independent scaffolds for an uptime monitoring service. Monitoring, HTTP APIs, persistence, authentication, and frontend/backend integration are not implemented yet.
+This repository contains a Go backend and a Next.js frontend for an uptime monitoring service. Authentication, PostgreSQL persistence, HTTP APIs and frontend authentication integration are implemented. Uptime monitoring is not implemented yet.
 
 - `backend/` and `frontend/` each have their own README, configuration, and contributor guide.
 - Follow [backend/AGENTS.md](backend/AGENTS.md) or [frontend/AGENTS.md](frontend/AGENTS.md) for project-specific structure, commands, style, and validation.

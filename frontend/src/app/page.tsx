@@ -1,7 +1,2 @@
-export default function Home() {
-  return (
-    <main>
-      <div>Hello world!</div>
-    </main>
-  );
-}
+import { Account } from "@/components/account";
+export default function Home() { return <Account redirectOnly />; }

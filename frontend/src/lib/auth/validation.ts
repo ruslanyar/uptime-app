@@ -1,0 +1,11 @@
+import type { Credentials } from "./api";
+export type FieldErrors = Partial<Record<keyof Credentials, string>>;
+export function validate(values: Credentials, register: boolean): { values: Credentials; errors: FieldErrors } {
+  const normalized = { ...values, email: values.email.trim().toLowerCase(), ...(register ? { name: values.name?.trim() ?? "" } : {}) };
+  const errors: FieldErrors = {};
+  if (register && (Array.from(normalized.name ?? "").length < 1 || Array.from(normalized.name ?? "").length > 100)) errors.name = "Введите имя длиной от 1 до 100 символов.";
+  if (new TextEncoder().encode(normalized.email).length > 254 || !/^[^\s@]+@[^\s@]+$/.test(normalized.email)) errors.email = "Введите корректный email (до 254 байт).";
+  const length = Array.from(values.password).length;
+  if (length < 15 || length > 128) errors.password = "Пароль должен содержать от 15 до 128 символов.";
+  return { values: normalized, errors };
+}

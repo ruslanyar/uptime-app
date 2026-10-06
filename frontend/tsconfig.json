@@ -28,7 +28,11 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next-e2e-http/types/**/*.ts",
+    ".next-e2e-http/dev/types/**/*.ts",
+    ".next-e2e-https/types/**/*.ts",
+    ".next-e2e-https/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", ".next-e2e-http", ".next-e2e-https"]
 }
