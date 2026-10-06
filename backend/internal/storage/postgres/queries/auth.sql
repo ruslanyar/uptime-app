@@ -16,3 +16,6 @@ SELECT * FROM sessions WHERE id=$1 FOR UPDATE;
 UPDATE refresh_tokens SET used_at=$2 WHERE hash=$1;
 -- name: RevokeSession :exec
 UPDATE sessions SET revoked=true WHERE id=$1;
+
+-- name: UpdateUserName :one
+UPDATE users SET name = $2 WHERE id = $1 RETURNING *;

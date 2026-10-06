@@ -97,3 +97,38 @@ func TestService(t *testing.T) {
 		t.Fatal("empty logout not idempotent", e)
 	}
 }
+
+func (s *stubStore) UpdateName(_ context.Context, id, name string) (User, error) {
+	if id != s.account.ID {
+		return User{}, ErrUnauthorized
+	}
+	if s.err != nil {
+		return User{}, s.err
+	}
+	s.account.Name = name
+	return s.account.User, nil
+}
+func TestUpdateProfile(t *testing.T) {
+	store := &stubStore{account: Account{User: User{ID: NewID(), Name: "Old", Email: "user@example.com"}}}
+	tokens := NewTokens(strings.Repeat("s", 32), "issuer", "audience")
+	service, e := NewService(store, tokens)
+	if e != nil {
+		t.Fatal(e)
+	}
+	token, e := tokens.Issue(store.account.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	u, e := service.UpdateProfile(t.Context(), token, "  Новое имя  ")
+	if e != nil || u.Name != "Новое имя" || u.Email != "user@example.com" {
+		t.Fatal(u, e)
+	}
+	for _, name := range []string{"", "   ", "я", strings.Repeat("я", 51), string([]byte{0xff})} {
+		if _, e := service.UpdateProfile(t.Context(), token, name); !errors.Is(e, ErrInvalid) {
+			t.Fatal(name, e)
+		}
+	}
+	if _, e := service.UpdateProfile(t.Context(), "invalid", "Name"); !errors.Is(e, ErrUnauthorized) {
+		t.Fatal(e)
+	}
+}

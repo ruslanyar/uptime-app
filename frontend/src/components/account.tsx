@@ -1,9 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { redirect } from 'next/navigation';
 import { useAuth } from './auth-provider';
 import { SessionStatus } from './session-status';
 import { Eyebrow, PageHeading } from '@/components/page-shell';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { errorMessage, type User } from '@/lib/auth/api';
@@ -12,21 +14,53 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   const auth = useAuth();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const submitting = useRef(false);
   // Session clears its user while a mutation runs; retain this screen's user
-  // only for the explicitly requested logout and its error state.
-  const [logoutUser, setLogoutUser] = useState<User>();
-  const user = auth.user ?? (pending || message ? logoutUser : undefined);
+  // while saving a profile or logging out, and when showing a request error.
+  const [retainedUser, setRetainedUser] = useState<User>();
+  const user =
+    auth.user ?? (pending || saving || message ? retainedUser : undefined);
   if (auth.status === 'anonymous') redirect('/login');
   if (redirectOnly && auth.status === 'authenticated') redirect('/account');
   if (
     redirectOnly ||
     !user ||
-    (auth.status !== 'authenticated' && !pending && !message)
+    (auth.status !== 'authenticated' && !pending && !saving && !message)
   )
     return <SessionStatus />;
+  async function save(event: React.SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting.current) return;
+    const value = name.trim();
+    if (Array.from(value).length < 2 || Array.from(value).length > 50) {
+      setNameError('Введите имя длиной от 2 до 50 символов.');
+      return;
+    }
+    submitting.current = true;
+    setRetainedUser(user);
+    setSaving(true);
+    setNameError('');
+    setMessage('');
+    setSaved(false);
+    try {
+      await auth.session.mutate('profile', { name: value });
+      setEditing(false);
+      setSaved(true);
+    } catch (error) {
+      setMessage(errorMessage(error));
+    } finally {
+      submitting.current = false;
+      setSaving(false);
+    }
+  }
   async function logout() {
-    if (pending) return;
-    setLogoutUser(user);
+    if (pending || saving) return;
+    setRetainedUser(user);
     setPending(true);
     setMessage('');
     try {
@@ -50,6 +84,70 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
           {user.email}
         </dd>
       </dl>
+      {editing ? (
+        <form onSubmit={save} noValidate className="mb-7 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="profile-name">Имя</Label>
+            <Input
+              id="profile-name"
+              name="name"
+              autoComplete="name"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setNameError('');
+              }}
+              disabled={saving || pending}
+              aria-invalid={!!nameError}
+              aria-describedby={
+                nameError ? 'profile-name-error' : 'profile-name-hint'
+              }
+            />
+            <p id="profile-name-hint" className="text-xs text-muted-foreground">
+              От 2 до 50 символов.
+            </p>
+            {nameError && (
+              <p id="profile-name-error" className="text-xs text-destructive">
+                {nameError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" disabled={saving || pending}>
+              {saving ? 'Сохраняем…' : 'Сохранить'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving || pending}
+              onClick={() => {
+                setEditing(false);
+                setNameError('');
+              }}
+            >
+              Отмена
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button
+          className="mb-4"
+          disabled={pending || saving}
+          onClick={() => {
+            setName(user.name);
+            setEditing(true);
+            setNameError('');
+            setSaved(false);
+          }}
+        >
+          Редактировать профиль
+        </Button>
+      )}
+      {saved && (
+        <p role="status" className="mb-4 text-sm text-primary">
+          Имя сохранено.
+        </p>
+      )}
       {message && (
         <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
           <p>{message}</p>
@@ -65,7 +163,7 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
           </Button>
         </Alert>
       )}
-      <Button variant="outline" disabled={pending} onClick={logout}>
+      <Button variant="outline" disabled={pending || saving} onClick={logout}>
         {pending ? 'Выходим…' : 'Выйти'}
       </Button>
     </>

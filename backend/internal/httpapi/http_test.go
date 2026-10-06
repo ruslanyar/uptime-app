@@ -52,7 +52,7 @@ func request(h http.Handler, method, path, origin, csrf, body string) *httptest.
 	return w
 }
 func TestProtection(t *testing.T) {
-	for _, path := range []string{"register", "login", "refresh", "logout"} {
+	for _, path := range []string{"register", "login", "refresh", "logout", "profile"} {
 		for _, origin := range []string{"", "http://localhost:3000", "https://client.example", "http://localhost:3001", "https://localhost:3000", "https://unknown.example", "null"} {
 			for _, csrf := range []string{"", "0", "1"} {
 				f := &fakeService{}
@@ -255,5 +255,38 @@ func TestJSONAndMe(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != 400 {
 		t.Fatal(w.Code)
+	}
+}
+
+func (f *fakeService) UpdateProfile(_ context.Context, token, name string) (auth.User, error) {
+	f.calls++
+	f.meToken = token
+	return auth.User{ID: "id", Name: name, Email: "user@example.com"}, f.err
+}
+func TestUpdateProfile(t *testing.T) {
+	for _, tc := range []struct {
+		body, token string
+		status      int
+	}{
+		{`{"name":"New"}`, "access", 200},
+		{`{"name":"New"}`, "", 401},
+		{`{"name":"New","email":"other@example.com"}`, "access", 400},
+		{`null`, "access", 400},
+	} {
+		f := &fakeService{}
+		r := httptest.NewRequest("POST", "/api/v1/auth/profile", strings.NewReader(tc.body))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-CSRF-Protection", "1")
+		if tc.token != "" {
+			r.AddCookie(&http.Cookie{Name: "access_token", Value: tc.token})
+		}
+		w := httptest.NewRecorder()
+		New(f, cfg()).ServeHTTP(w, r)
+		if w.Code != tc.status {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		if tc.status == 200 && (f.meToken != tc.token || !strings.Contains(w.Body.String(), `"name":"New"`) || len(w.Result().Cookies()) != 0) {
+			t.Fatal(w.Body.String())
+		}
 	}
 }

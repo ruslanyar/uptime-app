@@ -10,7 +10,7 @@ This repository contains a Go backend and a Next.js frontend for an uptime monit
 
 ## Validation & Documentation
 
-Store implementation plans separately in `backend/docs/plan/` and `frontend/docs/plan/`, according to the project they concern.
+Save implementation plans to files only when they were developed with the user in Plan mode. Do not create plan files for work performed in Default mode. When saving a plan, use `backend/docs/plan/` or `frontend/docs/plan/`, according to the project it concerns.
 
 Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document any new test tooling, commands, or configuration in the relevant project README.
 

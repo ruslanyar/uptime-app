@@ -155,3 +155,11 @@ func (s *Store) Logout(ctx context.Context, hash []byte) error {
 	}
 	return tx.Commit(ctx)
 }
+
+func (s *Store) UpdateName(ctx context.Context, userID, name string) (auth.User, error) {
+	u, e := s.q.UpdateUserName(ctx, sqlc.UpdateUserNameParams{ID: uuid(userID), Name: name})
+	if e != nil {
+		return auth.User{}, storageError(e)
+	}
+	return user(u), nil
+}

@@ -29,7 +29,7 @@ describe('validation and contract', () => {
     const password = ' ' + '🔐'.repeat(13) + ' ';
     const result = validate(
       {
-        name: '  ' + '👩'.repeat(100) + '  ',
+        name: '  ' + '👩'.repeat(50) + '  ',
         email: ' IVAN@EXAMPLE.COM ',
         password,
       },
@@ -39,7 +39,7 @@ describe('validation and contract', () => {
     expect(result.values.password).toBe(password);
     expect(result.values.email).toBe('ivan@example.com');
     expect(
-      validate({ ...result.values, name: '👩'.repeat(101) }, true).errors.name,
+      validate({ ...result.values, name: '👩'.repeat(51) }, true).errors.name,
     ).toBeTruthy();
     expect(
       validate({ email: 'é'.repeat(125) + '@a.com', password }, false).errors
@@ -223,6 +223,39 @@ describe('session coordination', () => {
       }),
     ).rejects.toMatchObject({ kind: 'cookies' });
     expect(call.mock.calls.map(([path]) => path)).toEqual(['login', 'me']);
+  });
+  it('refreshes expired access before saving and broadcasts the updated profile', async () => {
+    const { call, session, sync } = fixture();
+    const updated = { ...user, name: 'New' };
+    call
+      .mockImplementationOnce(unauthorized)
+      .mockImplementationOnce(unauthorized)
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce(updated)
+      .mockResolvedValueOnce(updated);
+    await session.mutate('profile', { name: 'New' });
+    expect(call.mock.calls.map(([path]) => path)).toEqual([
+      'me',
+      'me',
+      'refresh',
+      'me',
+      'profile',
+      'me',
+    ]);
+    expect(session.snapshot().user).toEqual(updated);
+    expect(sync.broadcast).toHaveBeenCalledWith('changed');
+  });
+  it('does not retry a profile write after a network failure', async () => {
+    const { call, session, sync } = fixture();
+    call
+      .mockResolvedValueOnce(user)
+      .mockRejectedValueOnce(new AuthError('network'));
+    await expect(
+      session.mutate('profile', { name: 'New' }),
+    ).rejects.toMatchObject({ kind: 'network' });
+    expect(call.mock.calls.map(([path]) => path)).toEqual(['me', 'profile']);
+    expect(sync.broadcast).toHaveBeenCalledWith('uncertain');
   });
   it('preserves an error when logout fails', async () => {
     const { call, session, sync } = fixture();

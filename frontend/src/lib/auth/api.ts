@@ -1,4 +1,5 @@
 export type User = { id: string; name: string; email: string };
+export type Profile = { name: string };
 export type Credentials = { email: string; password: string; name?: string };
 
 export class AuthError extends Error {
@@ -55,8 +56,8 @@ export class AuthAPI {
     private request: typeof fetch = (...args) => fetch(...args),
   ) {}
   async call(
-    path: 'me' | 'register' | 'login' | 'refresh' | 'logout',
-    body?: Credentials,
+    path: 'me' | 'register' | 'login' | 'refresh' | 'logout' | 'profile',
+    body?: Credentials | Profile,
   ): Promise<User | undefined> {
     const base = this.origin();
     let response: Response;

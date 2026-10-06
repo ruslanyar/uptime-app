@@ -15,7 +15,7 @@ func TestValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name, email, password string
 		ok                    bool
-	}{{"n", "a@b.com", strings.Repeat("x", 14), false}, {"n", "a@b.com", strings.Repeat("x", 15), true}, {"n", "a@b.com", strings.Repeat("я", 128), true}, {"n", "a@b.com", strings.Repeat("x", 129), false}, {" ", "a@b.com", strings.Repeat("x", 15), false}, {strings.Repeat("я", 100), "a@b.com", strings.Repeat("x", 15), true}, {strings.Repeat("я", 101), "a@b.com", strings.Repeat("x", 15), false}, {"n", "Person <a@b.com>", strings.Repeat("x", 15), false}, {"n", "bad", strings.Repeat("x", 15), false}, {"n", strings.Repeat("a", 250) + "@b.com", strings.Repeat("x", 15), false}} {
+	}{{"nn", "a@b.com", strings.Repeat("x", 14), false}, {"nn", "a@b.com", strings.Repeat("x", 15), true}, {"nn", "a@b.com", strings.Repeat("я", 128), true}, {"nn", "a@b.com", strings.Repeat("x", 129), false}, {" ", "a@b.com", strings.Repeat("x", 15), false}, {strings.Repeat("я", 50), "a@b.com", strings.Repeat("x", 15), true}, {strings.Repeat("я", 51), "a@b.com", strings.Repeat("x", 15), false}, {"nn", "Person <a@b.com>", strings.Repeat("x", 15), false}, {"nn", "bad", strings.Repeat("x", 15), false}, {"nn", strings.Repeat("a", 250) + "@b.com", strings.Repeat("x", 15), false}} {
 		_, _, e := Validate(tc.name, tc.email, tc.password)
 		if (e == nil) != tc.ok {
 			t.Errorf("validation %+v: %v", tc, e)

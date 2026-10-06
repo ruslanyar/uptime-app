@@ -10,19 +10,9 @@ import (
 
 func (a *Controller) Me(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	var raw string
-	if headers, present := r.Header["Authorization"]; present {
-		fields := strings.Fields(r.Header.Get("Authorization"))
-		if len(headers) != 1 || len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
-			serviceError(w, auth.ErrUnauthorized)
-			return
-		}
-		raw = fields[1]
-	} else if cookie, err := r.Cookie("access_token"); err == nil {
-		raw = cookie.Value
-	}
-	if raw == "" {
-		serviceError(w, auth.ErrUnauthorized)
+	raw, e := accessToken(r)
+	if e != nil {
+		serviceError(w, e)
 		return
 	}
 	u, e := a.service.Me(r.Context(), raw)
@@ -31,4 +21,18 @@ func (a *Controller) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, 200, u)
+}
+
+func accessToken(r *http.Request) (string, error) {
+	if headers, present := r.Header["Authorization"]; present {
+		fields := strings.Fields(r.Header.Get("Authorization"))
+		if len(headers) != 1 || len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
+			return "", auth.ErrUnauthorized
+		}
+		return fields[1], nil
+	}
+	if cookie, e := r.Cookie("access_token"); e == nil && cookie.Value != "" {
+		return cookie.Value, nil
+	}
+	return "", auth.ErrUnauthorized
 }

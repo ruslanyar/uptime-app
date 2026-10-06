@@ -1,4 +1,10 @@
-import { AuthAPI, AuthError, type Credentials, type User } from './api';
+import {
+  AuthAPI,
+  AuthError,
+  type Credentials,
+  type Profile,
+  type User,
+} from './api';
 
 export type SessionState = {
   status: 'loading' | 'authenticated' | 'anonymous' | 'error';
@@ -125,8 +131,17 @@ export class Session {
     this.checking = promise;
     return promise;
   };
-  async mutate(action: 'login' | 'register' | 'logout', values?: Credentials) {
+  async mutate(
+    action: 'login' | 'register' | 'logout' | 'profile',
+    values?: Credentials | Profile,
+  ) {
     if (this.changing) return;
+    if (action === 'profile') {
+      await this.check();
+      if (this.state.status !== 'authenticated')
+        throw this.state.error ?? new AuthError('http', 401);
+      if (this.changing) return;
+    }
     this.changing = true;
     const version = ++this.generation;
     this.checking = undefined;

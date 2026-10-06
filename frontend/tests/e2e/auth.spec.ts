@@ -330,7 +330,7 @@ test('root and form routes follow current session state', async ({ page }) => {
 test('dark UI stays responsive with long account details', async ({
   page,
 }, info) => {
-  const name = 'Анна'.repeat(20);
+  const name = 'Анна'.repeat(12);
   const email = `long-${Date.now()}-${'a'.repeat(40)}@example.com`;
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/register');
@@ -451,4 +451,61 @@ test('menu logout exposes pending state and keeps failures visible', async ({
     path: `test-results/ui-logout-error-${info.project.name}.png`,
     fullPage: true,
   });
+});
+
+test('profile name persists and updates another tab', async ({
+  page,
+  context,
+}, info) => {
+  const email = await register(page);
+  await page.goto('/account');
+  const other = await context.newPage();
+  await other.goto('/account');
+  await expect(
+    other.getByRole('heading', { name: 'Здравствуйте, Анна' }),
+  ).toBeVisible();
+  await page.bringToFront();
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  await page.getByLabel('Имя', { exact: true }).fill('   ');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(
+    page.getByText('Введите имя длиной от 2 до 50 символов.'),
+  ).toBeVisible();
+  await page.getByLabel('Имя', { exact: true }).fill('  Новое имя  ');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByRole('status')).toHaveText('Имя сохранено.');
+  await expect(
+    page.getByRole('heading', { name: 'Здравствуйте, Новое имя' }),
+  ).toBeVisible();
+  await expect(
+    other.getByRole('heading', { name: 'Здравствуйте, Новое имя' }),
+  ).toBeVisible();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Здравствуйте, Новое имя' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Редактировать профиль' }).click();
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/profile-edit-${width}-${info.project.name}.png`,
+      fullPage: true,
+    });
+  }
+  await page.getByLabel('Имя', { exact: true }).fill('Отменённое имя');
+  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Здравствуйте, Новое имя' }),
+  ).toBeVisible();
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: 'Здравствуйте, Новое имя' }),
+  ).toBeVisible();
+  await other.close();
 });

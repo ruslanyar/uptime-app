@@ -13,10 +13,10 @@ export function validate(
   const errors: FieldErrors = {};
   if (
     register &&
-    (Array.from(normalized.name ?? '').length < 1 ||
-      Array.from(normalized.name ?? '').length > 100)
+    (Array.from(normalized.name ?? '').length < 2 ||
+      Array.from(normalized.name ?? '').length > 50)
   )
-    errors.name = 'Введите имя длиной от 1 до 100 символов.';
+    errors.name = 'Введите имя длиной от 2 до 50 символов.';
   if (
     new TextEncoder().encode(normalized.email).length > 254 ||
     !/^[^\s@]+@[^\s@]+$/.test(normalized.email)

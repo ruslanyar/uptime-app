@@ -104,6 +104,27 @@ func (q *Queries) TokenByHash(ctx context.Context, hash []byte) (RefreshToken, e
 	return i, err
 }
 
+const updateUserName = `-- name: UpdateUserName :one
+UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name, email, password_hash
+`
+
+type UpdateUserNameParams struct {
+	ID   pgtype.UUID
+	Name string
+}
+
+func (q *Queries) UpdateUserName(ctx context.Context, arg UpdateUserNameParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserName, arg.ID, arg.Name)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
 const useToken = `-- name: UseToken :exec
 UPDATE refresh_tokens SET used_at=$2 WHERE hash=$1
 `

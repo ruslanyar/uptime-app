@@ -253,3 +253,27 @@ func TestExpiryWhileWaitingForLock(t *testing.T) {
 		t.Fatal("expired session rotated after waiting for lock", e)
 	}
 }
+
+func TestUpdateProfile(t *testing.T) {
+	ctx, pool, s, _ := setup(t)
+	r := register(t, ctx, s)
+	other, e := s.Register(ctx, "Other", "other@example.com", "long password here")
+	if e != nil {
+		t.Fatal(e)
+	}
+	u, e := s.UpdateProfile(ctx, r.AccessToken, "  Новое имя  ")
+	if e != nil || u.ID != r.User.ID || u.Email != r.User.Email || u.Name != "Новое имя" {
+		t.Fatal(u, e)
+	}
+	persisted, e := postgres.New(pool).ByID(ctx, r.User.ID)
+	if e != nil || persisted != u {
+		t.Fatal(persisted, e)
+	}
+	unchanged, e := s.Me(ctx, other.AccessToken)
+	if e != nil || unchanged != other.User {
+		t.Fatal(unchanged, e)
+	}
+	if _, e := s.Login(ctx, r.User.Email, " long password with spaces "); e != nil {
+		t.Fatal("password changed", e)
+	}
+}

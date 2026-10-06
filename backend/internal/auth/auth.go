@@ -39,6 +39,7 @@ type Store interface {
 	Register(context.Context, Account, Session, []byte) error
 	ByEmail(context.Context, string) (Account, error)
 	ByID(context.Context, string) (User, error)
+	UpdateName(context.Context, string, string) (User, error)
 	CreateSession(context.Context, Session, []byte) error
 	Rotate(context.Context, []byte, []byte) (User, Session, error)
 	Logout(context.Context, []byte) error
@@ -72,7 +73,7 @@ func NormalizeEmail(s string) (string, error) {
 func Validate(name, email, password string) (string, string, error) {
 	name = strings.TrimSpace(name)
 	email, e := NormalizeEmail(email)
-	if e != nil || !utf8.ValidString(name) || !validPassword(password) || utf8.RuneCountInString(name) < 1 || utf8.RuneCountInString(name) > 100 {
+	if e != nil || !utf8.ValidString(name) || !validPassword(password) || utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 50 {
 		return "", "", ErrInvalid
 	}
 	return name, email, nil
@@ -204,4 +205,17 @@ func (s *Service) Me(ctx context.Context, raw string) (User, error) {
 		return User{}, ErrUnauthorized
 	}
 	return s.store.ByID(ctx, id)
+}
+
+// UpdateProfile changes only the name of the user identified by the access token.
+func (s *Service) UpdateProfile(ctx context.Context, raw, name string) (User, error) {
+	id, e := s.tokens.Verify(raw)
+	if e != nil {
+		return User{}, ErrUnauthorized
+	}
+	name = strings.TrimSpace(name)
+	if !utf8.ValidString(name) || utf8.RuneCountInString(name) < 2 || utf8.RuneCountInString(name) > 50 {
+		return User{}, ErrInvalid
+	}
+	return s.store.UpdateName(ctx, id, name)
 }

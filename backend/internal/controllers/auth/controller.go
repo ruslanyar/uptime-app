@@ -14,6 +14,7 @@ type Service interface {
 	Refresh(context.Context, string) (auth.Result, error)
 	Logout(context.Context, string) error
 	Me(context.Context, string) (auth.User, error)
+	UpdateProfile(context.Context, string, string) (auth.User, error)
 }
 type Controller struct {
 	service Service

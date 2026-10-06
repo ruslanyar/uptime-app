@@ -19,5 +19,6 @@ func New(service Service, cfg config.Config) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/refresh", controller.Refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", controller.Logout)
 	mux.HandleFunc("GET /api/v1/auth/me", controller.Me)
+	mux.HandleFunc("POST /api/v1/auth/profile", controller.UpdateProfile)
 	return protect(cfg, mux)
 }
