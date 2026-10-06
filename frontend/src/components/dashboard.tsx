@@ -87,7 +87,7 @@ export function Dashboard() {
           >
             <DropdownMenuLabel className="space-y-1 px-2 py-3">
               <p className="wrap-anywhere">{user.name}</p>
-              <p className="text-xs font-normal text-muted-foreground wrap-anywhere">
+              <p className="font-mono text-xs font-normal text-muted-foreground wrap-anywhere">
                 {user.email}
               </p>
             </DropdownMenuLabel>

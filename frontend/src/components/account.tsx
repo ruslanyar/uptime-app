@@ -46,7 +46,9 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
         <dt className="font-mono text-xs text-muted-foreground">Имя</dt>
         <dd className="pb-3 text-sm wrap-anywhere last:pb-0">{user.name}</dd>
         <dt className="font-mono text-xs text-muted-foreground">Email</dt>
-        <dd className="pb-3 text-sm wrap-anywhere last:pb-0">{user.email}</dd>
+        <dd className="pb-3 font-mono text-sm wrap-anywhere last:pb-0">
+          {user.email}
+        </dd>
       </dl>
       {message && (
         <Alert className="mb-4 border-destructive/30 bg-destructive/5 text-destructive">
