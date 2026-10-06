@@ -39,7 +39,7 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   }
   return (
     <>
-      <Eyebrow>ЛИЧНЫЙ АККАУНТ</Eyebrow>
+      <Eyebrow>Личный аккаунт</Eyebrow>
       <PageHeading>Здравствуйте, {user.name}</PageHeading>
       <p className="text-sm text-muted-foreground">Вы вошли в свой аккаунт.</p>
       <dl aria-label="Данные аккаунта" className="my-7 space-y-2 border-y py-6">

@@ -29,10 +29,10 @@ export function Surface({ children }: { children: React.ReactNode }) {
         className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(#d7f54204_1px,transparent_1px),linear-gradient(90deg,#d7f54204_1px,transparent_1px)] bg-size-[64px_64px] mask-[linear-gradient(black,transparent_80%)]"
       />
       {children}
-      <footer className="mx-6 flex flex-wrap justify-between gap-3 border-t border-border/60 py-6 font-mono text-[10px] tracking-widest text-muted-foreground sm:mx-12">
-        <span>UPTIME / МОНИТОРИНГ ДОСТУПНОСТИ</span>
+      <footer className="mx-6 flex flex-wrap justify-between gap-3 border-t border-border/60 py-6 font-mono text-[10px] tracking-widest text-muted-foreground uppercase sm:mx-12">
+        <span>Uptime / мониторинг доступности</span>
         <span>
-          ВСЕГДА НА СВЯЗИ <span className="text-primary">↗</span>
+          Всегда на связи <span className="text-primary">↗</span>
         </span>
       </footer>
     </div>
@@ -41,7 +41,7 @@ export function Surface({ children }: { children: React.ReactNode }) {
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-4 font-mono text-[11px] font-medium tracking-[0.18em] text-primary">
+    <p className="mb-4 font-mono text-[11px] font-medium tracking-[0.18em] text-primary uppercase">
       {'// '}
       {children}
     </p>
@@ -61,13 +61,13 @@ export function PageShell({ children }: { children: React.ReactNode }) {
     <Surface>
       <header className="flex items-center justify-between border-b border-border/60 px-6 py-6 sm:px-12">
         <Brand />
-        <span className="hidden font-mono text-[10px] tracking-widest text-muted-foreground sm:block">
-          ВАШИ СЕРВИСЫ. ПОД КОНТРОЛЕМ.
+        <span className="hidden font-mono text-[10px] tracking-widest text-muted-foreground uppercase sm:block">
+          Ваши сервисы. Под контролем.
         </span>
       </header>
       <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 py-12 lg:grid-cols-2 lg:gap-20 lg:px-12 lg:py-20">
         <div className="hidden lg:block">
-          <Eyebrow>НА СВЯЗИ С ВАШИМИ СЕРВИСАМИ</Eyebrow>
+          <Eyebrow>На связи с вашими сервисами</Eyebrow>
           <p className="max-w-lg text-6xl leading-[1.08] tracking-tight">
             Спокойствие начинается с{' '}
             <span className="bg-linear-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
@@ -83,8 +83,8 @@ export function PageShell({ children }: { children: React.ReactNode }) {
           >
             <span className="h-px w-16 bg-linear-to-r from-primary to-transparent" />
             <ArrowUpRight className="size-5" />
-            <span className="font-mono text-[10px] tracking-widest">
-              UPTIME / YOUR CONTROL ROOM
+            <span className="font-mono text-[10px] tracking-widest uppercase">
+              Uptime / your control room
             </span>
           </div>
         </div>

@@ -69,9 +69,9 @@ export function Dashboard() {
             >
               <span
                 aria-hidden="true"
-                className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/25 bg-primary/10 text-primary"
+                className="grid size-9 shrink-0 place-items-center rounded-full border border-primary/25 bg-primary/10 text-primary uppercase"
               >
-                {Array.from(user.name.trim())[0]?.toLocaleUpperCase('ru')}
+                {Array.from(user.name.trim())[0]}
               </span>
               <span className="max-w-25 truncate sm:max-w-45">{user.name}</span>
               <ChevronDown
@@ -113,7 +113,7 @@ export function Dashboard() {
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10 sm:px-12 sm:py-16">
         <section aria-labelledby="dashboard-title">
-          <Eyebrow>ОБЗОР</Eyebrow>
+          <Eyebrow>Обзор</Eyebrow>
           <h1
             id="dashboard-title"
             className="max-w-3xl text-3xl font-medium tracking-tight wrap-anywhere sm:text-5xl"
@@ -157,8 +157,8 @@ export function Dashboard() {
                 Здесь будут ваши мониторы и информация о доступности сервисов.
               </p>
             </div>
-            <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-mono text-[10px] tracking-widest text-primary">
-              <ArrowUpRight className="size-3" aria-hidden="true" />В РАЗРАБОТКЕ
+            <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 font-mono text-[10px] tracking-widest text-primary uppercase">
+              <ArrowUpRight className="size-3" aria-hidden="true" />В разработке
             </span>
           </Card>
         </section>

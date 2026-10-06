@@ -5,7 +5,7 @@ import { AuthForm } from '@/components/auth-form';
 export default function Register() {
   return (
     <>
-      <Eyebrow>ВАШ АККАУНТ</Eyebrow>
+      <Eyebrow>Ваш аккаунт</Eyebrow>
       <PageHeading>Создать аккаунт</PageHeading>
       <p className="text-sm leading-relaxed text-muted-foreground">
         Начните с личного аккаунта в Uptime.

@@ -5,7 +5,7 @@ import { AuthForm } from '@/components/auth-form';
 export default function Login() {
   return (
     <>
-      <Eyebrow>ВАШ АККАУНТ</Eyebrow>
+      <Eyebrow>Ваш аккаунт</Eyebrow>
       <PageHeading>Войти</PageHeading>
       <p className="text-sm leading-relaxed text-muted-foreground">
         Рады видеть вас снова в Uptime.
