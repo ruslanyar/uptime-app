@@ -36,7 +36,7 @@ export function AuthForm({
     ['config', 'unsupported'].includes(auth.error.kind)
   )
     return <SessionStatus />;
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
     const data = new FormData(event.currentTarget);
