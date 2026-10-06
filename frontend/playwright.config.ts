@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { backendTestEnv } from './scripts/test-env.mjs';
 import { defineConfig } from '@playwright/test';
 
 // Local servers must bypass inherited CI HTTP proxies.
@@ -12,7 +12,7 @@ process.env.NO_PROXY = [
   .filter(Boolean)
   .join(',');
 process.env.no_proxy = process.env.NO_PROXY;
-process.env.FRONTEND_E2E_JWT_SECRET ??= randomBytes(32).toString('hex');
+process.env.FRONTEND_E2E_JWT_SECRET = backendTestEnv().JWT_SECRET;
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -38,19 +38,19 @@ export default defineConfig({
     {
       name: 'localhost',
       testIgnore: '**/third-party.spec.ts',
-      use: { browserName: 'chromium', baseURL: 'http://localhost:13000' },
+      use: { browserName: 'chromium', baseURL: process.env.E2E_FRONTEND_URL },
     },
     {
       name: 'cross-site-https',
       use: {
         browserName: 'chromium',
-        baseURL: 'https://frontend.auth-client.test:13443',
+        baseURL: process.env.E2E_HTTPS_FRONTEND_URL,
       },
     },
   ],
   webServer: {
     command: 'node scripts/e2e-server.mjs',
-    url: 'http://127.0.0.1:13999',
+    url: process.env.E2E_READY_URL,
     timeout: 180000,
     reuseExistingServer: false,
     gracefulShutdown: { signal: 'SIGTERM', timeout: 45000 },

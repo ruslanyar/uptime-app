@@ -4,3 +4,8 @@
 .env
 .env.*
 npm-debug.log*
+
+# Shared local defaults contain no private credentials
+!.env.example
+!.env.development
+!.env.test

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"uptime-app/backend/internal/config"
 	"uptime-app/backend/internal/migrations"
 )
 
@@ -15,7 +16,11 @@ func run() error {
 	if len(os.Args) != 2 {
 		return fmt.Errorf("usage: migrate up|status|down")
 	}
-	url := os.Getenv("DATABASE_URL")
+	get, err := config.Environment(os.Getenv("APP_ENV"))
+	if err != nil {
+		return err
+	}
+	url := get("DATABASE_URL")
 	if url == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}

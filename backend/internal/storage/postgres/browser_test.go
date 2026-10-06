@@ -17,9 +17,7 @@ func TestBrowserCrossSite(t *testing.T) {
 	if os.Getenv("AUTH_BROWSER_CHECK") != "1" {
 		t.Skip("set AUTH_BROWSER_CHECK=1 to check browser HTTPS cross-site flow")
 	}
-	if os.Getenv("TEST_DATABASE_URL") == "" {
-		t.Fatal("browser check requires TEST_DATABASE_URL")
-	}
+
 	_, _, service, _ := setup(t)
 	var apiBase string
 	frontend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

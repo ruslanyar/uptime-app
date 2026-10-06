@@ -3,3 +3,8 @@
 .env
 .env.*
 !.env.example
+
+# Shared local defaults contain no private credentials
+!.env.example
+!.env.development
+!.env.test

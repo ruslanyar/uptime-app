@@ -1,4 +1,5 @@
 // Real Go API + disposable PostgreSQL database + two independent browser origins.
+import { backendTestEnv } from './test-env.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,14 @@ import http from 'node:http';
 import net from 'node:net';
 
 const backend = resolve('../backend');
+const backendEnv = backendTestEnv();
+const frontendURL = new URL(process.env.E2E_FRONTEND_URL);
+const apiURL = new URL(process.env.NEXT_PUBLIC_API_URL);
+const httpsFrontendURL = new URL(process.env.E2E_HTTPS_FRONTEND_URL);
+const httpsApiURL = new URL(process.env.E2E_HTTPS_API_URL);
+const httpsFrontendPort = process.env.E2E_HTTPS_FRONTEND_PORT;
+const httpsApiPort = process.env.E2E_HTTPS_HTTP_ADDR.split(':').at(-1);
+const readyURL = new URL(process.env.E2E_READY_URL);
 const temporary = await mkdtemp(join(tmpdir(), 'uptime-frontend-e2e-'));
 const database = `frontend_e2e_${randomBytes(8).toString('hex')}`;
 const children = [];
@@ -54,9 +63,9 @@ async function sql(statement) {
       'postgres-test',
       'psql',
       '-U',
-      'uptime_test',
+      backendEnv.POSTGRES_USER,
       '-d',
-      'uptime_test',
+      backendEnv.POSTGRES_DB,
       '-v',
       'ON_ERROR_STOP=1',
       '-c',
@@ -146,47 +155,46 @@ try {
   );
   await sql(`CREATE DATABASE "${database}"`);
   created = true;
-  const env = {
-    ...process.env,
-    DATABASE_URL: `postgres://uptime_test:local-test-only@localhost:55432/${database}?sslmode=disable`,
-    JWT_SECRET:
-      process.env.FRONTEND_E2E_JWT_SECRET ?? randomBytes(32).toString('hex'),
-    JWT_ISSUER: 'frontend-e2e',
-    JWT_AUDIENCE: 'frontend-e2e',
-  };
+  const databaseURL = new URL(backendEnv.TEST_DATABASE_URL);
+  databaseURL.pathname = `/${database}`;
+  const env = { ...backendEnv, DATABASE_URL: databaseURL.href };
   await command('go', ['run', './cmd/migrate', 'up'], { cwd: backend, env });
   const binary = join(temporary, 'api');
   await command('go', ['build', '-o', binary, './cmd/api'], { cwd: backend });
   start(binary, [], {
+    cwd: backend,
     env: {
       ...env,
-      HTTP_ADDR: '127.0.0.1:18080',
-      ALLOWED_ORIGINS: 'http://localhost:13000',
-      COOKIE_SECURE: 'false',
-      COOKIE_SAME_SITE: 'lax',
+      HTTP_ADDR: backendEnv.HTTP_ADDR,
+      ALLOWED_ORIGINS: frontendURL.origin,
+      COOKIE_SECURE: backendEnv.COOKIE_SECURE,
+      COOKIE_SAME_SITE: backendEnv.COOKIE_SAME_SITE,
     },
   });
   start(binary, [], {
+    cwd: backend,
     env: {
       ...env,
-      HTTP_ADDR: '127.0.0.1:18081',
-      ALLOWED_ORIGINS: 'https://frontend.auth-client.test:13443',
+      HTTP_ADDR: process.env.E2E_HTTPS_HTTP_ADDR,
+      ALLOWED_ORIGINS: httpsFrontendURL.origin,
       COOKIE_SECURE: 'true',
       COOKIE_SAME_SITE: 'none',
     },
   });
   const next = resolve('node_modules/next/dist/bin/next');
-  start(process.execPath, [next, 'dev', '-p', '13000'], {
+  start(process.execPath, [next, 'dev', '-p', frontendURL.port], {
     env: {
       ...process.env,
-      NEXT_PUBLIC_API_URL: 'http://localhost:18080',
+      NODE_ENV: 'development',
+      NEXT_PUBLIC_API_URL: apiURL.origin,
       E2E_DIST_DIR: '.next-e2e-http',
     },
   });
-  start(process.execPath, [next, 'dev', '-p', '13001'], {
+  start(process.execPath, [next, 'dev', '-p', httpsFrontendPort], {
     env: {
       ...process.env,
-      NEXT_PUBLIC_API_URL: 'https://api.auth-service.test:18443',
+      NODE_ENV: 'development',
+      NEXT_PUBLIC_API_URL: httpsApiURL.origin,
       E2E_DIST_DIR: '.next-e2e-https',
     },
   });
@@ -214,8 +222,8 @@ try {
     cert: await readFile(join(temporary, 'cert.pem')),
   };
   for (const [port, target] of [
-    [13443, 13001],
-    [18443, 18081],
+    [Number(httpsFrontendURL.port), Number(httpsFrontendPort)],
+    [Number(httpsApiURL.port), Number(httpsApiPort)],
   ]) {
     const server = https.createServer(tls, (request, response) => {
       const upstream = http.request(
@@ -259,11 +267,14 @@ try {
   // Readiness checks both Next instances and APIs; this endpoint never serves app data.
   const ready = http.createServer(async (_request, response) => {
     try {
-      for (const port of [13000, 13001, 18080, 18081]) {
-        const result = await fetch(
-          `http://localhost:${port}${port < 18000 ? '/login' : '/api/v1/auth/me'}`,
-        );
-        if (result.status !== (port < 18000 ? 200 : 401)) throw new Error();
+      for (const [port, path, status] of [
+        [frontendURL.port, '/login', 200],
+        [httpsFrontendPort, '/login', 200],
+        [apiURL.port, '/api/v1/auth/me', 401],
+        [httpsApiPort, '/api/v1/auth/me', 401],
+      ]) {
+        const result = await fetch(`http://localhost:${port}${path}`);
+        if (result.status !== status) throw new Error();
       }
       response.end('ready');
     } catch {
@@ -271,7 +282,7 @@ try {
       response.end();
     }
   });
-  ready.listen(13999, '127.0.0.1');
+  ready.listen(Number(readyURL.port), readyURL.hostname);
   servers.push(ready);
 } catch (error) {
   console.error(error.message);

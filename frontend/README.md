@@ -21,24 +21,36 @@ Next.js 16.3.8 / React 19.2.8, TypeScript, App Router и Tailwind CSS.
 ## Локальный запуск
 
 Сначала запустите PostgreSQL, миграции и API по инструкции бэкенда.
-Для API на `http://localhost:8080` задайте:
-
-```sh
-export ALLOWED_ORIGINS='http://localhost:3000'
-export COOKIE_SECURE=false
-export COOKIE_SAME_SITE=lax
-```
-
+Настройки локального API уже находятся в `backend/.env.development`.
 Из `frontend/`:
 
 ```sh
 npm ci
-printf 'NEXT_PUBLIC_API_URL=http://localhost:8080\n' > .env.local
 npm run dev
 ```
 
+`npm run dev` читает `.env.development`; `PORT=3000` задаёт порт,
+`NEXT_PUBLIC_API_URL=http://localhost:8080` — адрес API.
+Личные значения записывайте в игнорируемый `.env.development.local`.
+`.env.example` перечисляет development- и test-настройки.
+Приоритет загрузки стандартный для Next.js: окружение процесса →
+`.env.<среда>.local` → `.env.local` (кроме test) → `.env.<среда>` → `.env`.
+`npm run build:development` создаёт production-сборку с настройками development
+для локальной проверки; `npm run build` сохраняет стандартное поведение Next.js.
+Dev launcher использует `@next/env` до запуска CLI, чтобы `PORT` был доступен заранее.
+
+Vitest и Playwright читают `.env.test` через `@next/env` с `NODE_ENV=test`.
+E2E API получает БД, JWT и HTTP-настройки из `backend/.env.test`;
+адреса frontend, HTTPS-прокси и readiness находятся в `frontend/.env.test`.
+Для HTTPS-сценария E2E runner включает Secure/SameSite=None и отдельный origin,
+а для каждого запуска создаёт уникальную БД. Два Next dev процесса получают
+тестовые настройки из runner с `NODE_ENV=development`, как требуется Next.js.
+`.env.local` не влияет на тестовые настройки, уже загруженные runner.
+`BROWSER_EXECUTABLE` — необязательный путь к системному Chromium.
+`CI`, прокси и переменные браузерной инфраструктуры могут приходить из процесса.
+
 Откройте `http://localhost:3000`. Не смешивайте `localhost` и `127.0.0.1`:
-cookies и разрешённый origin зависят от имени хоста. `.env.local` игнорируется Git.
+cookies и разрешённый origin зависят от имени хоста.
 
 `NEXT_PUBLIC_API_URL` обязательна: точный origin API без пути, завершающего `/`,
 логина, пароля или query. Это публичный адрес, а не секрет. Next.js подставляет
@@ -106,7 +118,7 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm test
-NEXT_PUBLIC_API_URL=http://localhost:8080 npm run build
+npm run build:development
 npm start
 ```
 
@@ -182,7 +194,7 @@ docker compose --profile test rm --stop --force postgres-test
 ```
 
 Не подключайте production-базу к стенду. Используются исключительно локальные
-учётные данные Compose и случайный JWT-секрет в памяти тестовых процессов.
+учётные данные и тестовый JWT-секрет из `backend/.env.test`.
 Для проверки истёкшего access тест меняет и подписывает JWT **в Node.js**;
 приложение и браузерный JavaScript токены не декодируют.
 

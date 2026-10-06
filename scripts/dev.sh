@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local development only. No user environment files are sourced or rewritten.
+# Local development only. Settings live in backend/ and frontend/ .env files.
 set -euo pipefail
 # Each managed command gets its own process group, including its descendants.
 set -m
@@ -49,7 +49,7 @@ cleanup() {
     (cd "$BACKEND" && docker compose -f compose.yaml stop -t 10 postgres) || code=1
   fi
   if [[ "$lock_owned" == true ]]; then
-    rm -f "$STATE/jwt-secret.tmp" "$LOCK/pid"
+    rm -f "$LOCK/pid"
     rmdir "$LOCK" || code=1
   fi
   exit "$code"
@@ -122,11 +122,14 @@ fi
 lock_owned=true
 printf '%s\n' "$$" > "$LOCK/pid"
 
+# Read the same local settings as the applications (process overrides win).
+read -r API_PORT FRONTEND_PORT < <(node "$ROOT/scripts/dev-env.mjs")
+export API_PORT FRONTEND_PORT
 # Bind only to loopback; never terminate a process already using these ports.
-node - <<'JS' || fail 'Порт 3000 или 8080 занят; освободите его и повторите запуск.'
+node - <<'JS' || fail "Порт $FRONTEND_PORT или $API_PORT занят; освободите его и повторите запуск."
 const net = require("node:net");
 (async () => {
-  for (const port of [3000, 8080]) {
+  for (const port of [Number(process.env.FRONTEND_PORT), Number(process.env.API_PORT)]) {
     await new Promise((resolve, reject) => {
       const server = net.createServer();
       server.once("error", () => reject(new Error(`Порт ${port} недоступен`)));
@@ -143,21 +146,8 @@ if [[ ! -d "$FRONTEND/node_modules" || ! -f "$STATE/frontend-fingerprint" || "$(
   printf '%s\n' "$fingerprint" > "$STATE/frontend-fingerprint"
 fi
 
-if [[ ! -f "$STATE/jwt-secret" ]]; then
-  openssl rand -hex 32 > "$STATE/jwt-secret.tmp"
-  mv "$STATE/jwt-secret.tmp" "$STATE/jwt-secret"
-fi
-chmod 600 "$STATE/jwt-secret"
-JWT_SECRET="$(cat "$STATE/jwt-secret")"
-[[ "$JWT_SECRET" =~ ^[0-9a-f]{64}$ ]] || fail 'Некорректный локальный секрет .dev/jwt-secret.'
-export JWT_SECRET
-export DATABASE_URL='postgres://uptime:local-development-only@localhost:5432/uptime?sslmode=disable'
-export HTTP_ADDR='127.0.0.1:8080'
-export JWT_ISSUER='uptime-api'
-export JWT_AUDIENCE='uptime-client'
-export ALLOWED_ORIGINS='http://localhost:3000'
-export COOKIE_SECURE=false
-export COOKIE_SAME_SITE=lax
+node "$ROOT/scripts/dev-env.mjs" secret
+export APP_ENV=development
 
 info 'Собираем API и мигратор…'
 run build "$BACKEND" go build -o "$STATE/api" ./cmd/api
@@ -169,12 +159,12 @@ run migrate "$BACKEND" "$STATE/migrate" up
 
 start api "$BACKEND" "$STATE/api"
 api_pid="$last_pid"
-ready 'http://127.0.0.1:8080/api/v1/auth/me' 401 API
-# The public origin overrides .env.local without changing it. Use the normal Next directory.
-start frontend "$FRONTEND" env NEXT_PUBLIC_API_URL='http://localhost:8080' E2E_DIST_DIR='.next' LOCAL_DEV_LAUNCH=1 node "$FRONTEND/node_modules/next/dist/bin/next" dev --hostname 127.0.0.1 --port 3000
+ready "http://127.0.0.1:$API_PORT/api/v1/auth/me" 401 API
+# Frontend settings come from its development env files.
+start frontend "$FRONTEND" env LOCAL_DEV_LAUNCH=1 node scripts/dev.mjs --hostname 127.0.0.1
 frontend_pid="$last_pid"
-ready 'http://127.0.0.1:3000/login' 307 'Перенаправление на localhost'
-ready 'http://localhost:3000/login' 200 'Фронтенд'
-info 'Окружение готово. Фронтенд: http://localhost:3000 | API: http://localhost:8080'
+ready "http://127.0.0.1:$FRONTEND_PORT/login" 307 'Перенаправление на localhost'
+ready "http://localhost:$FRONTEND_PORT/login" 200 'Фронтенд'
+info "Окружение готово. Фронтенд: http://localhost:$FRONTEND_PORT | API: http://localhost:$API_PORT"
 info 'Ctrl+C остановит приложения. Аккаунты и сессии сохраняются между запусками.'
 while true; do ensure_running; sleep 1; done

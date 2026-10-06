@@ -1,3 +1,4 @@
+import './scripts/test-env.mjs';
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 

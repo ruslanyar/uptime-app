@@ -28,24 +28,32 @@ Go 1.27+; PostgreSQL 17. Реализованы регистрация, вход
 ## Локальный запуск
 
 ```sh
+# Один раз создайте личный JWT-секрет (файл игнорируется Git):
+(umask 077; printf 'JWT_SECRET=%s\n' "$(openssl rand -hex 32)" > .env.development.local)
 docker compose up -d --wait postgres
-export DATABASE_URL='postgres://uptime:local-development-only@localhost:5432/uptime?sslmode=disable'
-export HTTP_ADDR=':8080'
-export JWT_SECRET='<replace-with-at-least-32-random-bytes>'
-export JWT_ISSUER='uptime-api'
-export JWT_AUDIENCE='uptime-client'
-export ALLOWED_ORIGINS='http://localhost:3000'
-export COOKIE_SECURE=false
-export COOKIE_SAME_SITE=lax
 go run ./cmd/migrate up
 go run ./cmd/migrate status
 go run ./cmd/api
 ```
 
-Пароли Compose предназначены только для локальных одноразовых баз, не для production.
-`JWT_SECRET` замените случайным секретом, например результатом `openssl rand -base64 32`.
-API не загружает `.env` автоматически: экспортируйте переменные в окружение процесса.
-API не применяет миграции самостоятельно; применяйте их перед запуском/развёртыванием.
+API и мигратор автоматически читают `.env.development` из корня backend,
+включая запуск из вложенных каталогов. `APP_ENV=test` выбирает `.env.test`;
+поддерживаются только `development` (по умолчанию) и `test`.
+Все настройки перечислены в `.env.example`; в `.env.development` находятся
+локальные значения, в `.env.test` — отдельная одноразовая тестовая БД и тестовый ключ.
+Общие файлы коммитируются, личные секреты записывайте только в `.env*.local`.
+Compose читает настройки PostgreSQL из файлов соответствующей среды и их `.local`.
+При изменении учётных данных измените также URL; существующий development volume
+сохраняет учётные данные, с которыми был создан. Порты Compose — 5432 и 55432.
+Требуется Compose 2.24+ для необязательных `env_file`.
+
+Приоритет: переменные процесса → `.env.<среда>.local` → `.env.local`
+(только development) → `.env.<среда>` → `.env`.
+Отсутствующий файл выбранной среды или ошибка синтаксиса останавливают запуск.
+Загрузка не изменяет окружение процесса. Используется `godotenv` v1.5.1.
+API не применяет миграции автоматически.
+
+Следующий пример описывает HTTPS-параметры, а не отдельную production-среду:
 
 Для фронтенда и API на несвязанных HTTPS-доменах:
 
@@ -208,22 +216,55 @@ await fetch(`${apiBase}/api/v1/auth/refresh`, {
 Используются стандартный Go testing, настоящая PostgreSQL через Docker Compose,
 а для отдельного браузерного сценария — Node.js и Playwright.
 
+### Go integration tests с PostgreSQL
+
+Требуются Go 1.27+ и работающий Docker с Compose 2.24+.
+Из корня репозитория выполните:
+
 ```sh
-sh scripts/check-sqlc.sh  # перед Go-проверками
-go test ./...
+cd backend
+docker compose --profile test up -d --wait postgres-test
+go test -v -count=1 ./internal/migrations ./internal/storage/postgres
+```
+
+Compose запускает изолированную PostgreSQL на порту 55432 и ждёт готовности.
+Тесты автоматически читают `TEST_DATABASE_URL` из `backend/.env.test`;
+экспортировать переменные, запускать API/frontend или применять миграции вручную
+не требуется. Каждый тест создаёт собственную временную БД, применяет миграции
+и удаляет БД после завершения. Development-база не используется.
+Не запускайте одновременно frontend E2E: они управляют тем же `postgres-test`.
+
+`-v` показывает отдельные проверки, `-count=1` отключает кеш результатов Go.
+Успешный результат — `PASS` и `ok` для обоих пакетов. `TestBrowserCrossSite`
+по умолчанию имеет `SKIP`: это отдельная браузерная проверка, описанная ниже.
+Остальные интеграционные тесты должны выполняться без пропусков.
+Если они сообщают `TEST_DATABASE_URL is not set`, проверьте `.env.test` и уберите
+пустой `TEST_DATABASE_URL` из окружения процесса: он имеет приоритет над файлом.
+
+После проверки остановите тестовую PostgreSQL (из `backend/`):
+
+```sh
+docker compose --profile test stop postgres-test
+```
+
+Тестовые данные хранятся в tmpfs; остановка тестового сервиса не затрагивает
+volume базы разработки. Для собственной тестовой БД задайте URL в
+`.env.test.local`; её пользователь должен иметь CREATEDB.
+
+### Полная проверка backend
+
+Из `backend/`, с запущенной тестовой PostgreSQL:
+
+```sh
+sh scripts/check-sqlc.sh  # требует sqlc версии из .sqlc-version
+go test ./... -count=1
 go vet ./...
 go build -o bin/api ./cmd/api
-
-docker compose --profile test up -d --wait postgres-test
-export TEST_DATABASE_URL='postgres://uptime_test:local-test-only@localhost:55432/uptime_test?sslmode=disable'
-go test ./... -count=1
+# Дополнительная проверка гонок:
 go test -race ./... -count=1
 ```
 
-Интеграционные тесты создают уникальные временные БД и удаляют их после завершения;
-пользователь `TEST_DATABASE_URL` должен иметь CREATEDB. Не используйте production URL.
-Без `TEST_DATABASE_URL` они пропускаются; это не считается успешной интеграционной проверкой.
-База тестового сервиса хранится в tmpfs и изолирована от volume базы разработки.
+### Отдельная браузерная проверка
 
 Браузерный тест поднимает временные HTTPS API и страницу на разных сайтах
 `api.auth-service.test` и `frontend.auth-client.test`; приложение фронтенда не меняет.

@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         has: [{ type: 'host', value: '127\\.0\\.0\\.1' }],
-        destination: 'http://localhost:3000/:path*',
+        destination: `http://localhost:${process.env.PORT}/:path*`,
         permanent: false,
       },
     ];

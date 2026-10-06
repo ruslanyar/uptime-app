@@ -44,3 +44,8 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /.next-e2e-*/
+
+# Shared local defaults contain no private credentials
+!.env.example
+!.env.development
+!.env.test

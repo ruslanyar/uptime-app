@@ -22,7 +22,13 @@ func ValidOrigin(s string) bool {
 	return e == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && u.Hostname() != "" && u.User == nil && u.Path == "" && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.ContainsAny(s, "*#?\\") && s == u.Scheme+"://"+u.Host
 }
 
-func Load() (Config, error) { return Read(os.Getenv) }
+func Load() (Config, error) {
+	get, err := Environment(os.Getenv("APP_ENV"))
+	if err != nil {
+		return Config{}, err
+	}
+	return Read(get)
+}
 func Read(get func(string) string) (Config, error) {
 	c := Config{DatabaseURL: get("DATABASE_URL"), HTTPAddr: get("HTTP_ADDR"), JWTSecret: get("JWT_SECRET"), JWTIssuer: get("JWT_ISSUER"), JWTAudience: get("JWT_AUDIENCE"), AllowedOrigins: map[string]bool{}}
 	for _, v := range []struct{ k, v string }{{"DATABASE_URL", c.DatabaseURL}, {"JWT_SECRET", c.JWTSecret}, {"JWT_ISSUER", c.JWTIssuer}, {"JWT_AUDIENCE", c.JWTAudience}, {"ALLOWED_ORIGINS", get("ALLOWED_ORIGINS")}} {

@@ -24,8 +24,8 @@ async function register(page: Page, screenshot?: string) {
 }
 function apiURL(secure: boolean) {
   return secure
-    ? 'https://api.auth-service.test:18443'
-    : 'http://localhost:18080';
+    ? process.env.E2E_HTTPS_API_URL!
+    : process.env.NEXT_PUBLIC_API_URL!;
 }
 test('registration, reload, HttpOnly cookies, storage, logout and login', async ({
   page,
@@ -171,7 +171,7 @@ test('CSRF and origin refusals preserve cookies', async ({
   );
   expect(status).toBe(403);
   const refusal = await context.request.post(
-    `http://localhost:${info.project.name === 'cross-site-https' ? 18081 : 18080}/api/v1/auth/logout`,
+    `http://${info.project.name === 'cross-site-https' ? process.env.E2E_HTTPS_HTTP_ADDR : new URL(process.env.NEXT_PUBLIC_API_URL!).host}/api/v1/auth/logout`,
     {
       headers: {
         Origin: 'https://not-allowed.example',

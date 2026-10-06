@@ -6,16 +6,20 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
 	"uptime-app/backend/internal/auth"
+	"uptime-app/backend/internal/config"
 )
 
 func New(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	t.Helper()
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	get, err := config.Environment("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	databaseURL := get("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set; PostgreSQL integration NOT verified")
 	}

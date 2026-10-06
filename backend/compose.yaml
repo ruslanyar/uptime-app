@@ -1,28 +1,22 @@
 services:
   postgres:
     image: postgres:17.6-alpine
-    environment:
-      POSTGRES_USER: uptime
-      POSTGRES_PASSWORD: local-development-only
-      POSTGRES_DB: uptime
+    env_file: [.env.development, {path: .env.development.local, required: false}]
     ports: ["127.0.0.1:5432:5432"]
     volumes: ["postgres-data:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uptime"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 2s
       timeout: 3s
       retries: 30
   postgres-test:
     image: postgres:17.6-alpine
     profiles: [test]
-    environment:
-      POSTGRES_USER: uptime_test
-      POSTGRES_PASSWORD: local-test-only
-      POSTGRES_DB: uptime_test
+    env_file: [.env.test, {path: .env.test.local, required: false}]
     ports: ["127.0.0.1:55432:5432"]
     tmpfs: ["/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uptime_test"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 2s
       timeout: 3s
       retries: 30
