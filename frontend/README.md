@@ -110,13 +110,20 @@ BROWSER_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e
 
 Стенд сам запускает `backend/compose.yaml` service `postgres-test` на порту 55432,
 создаёт уникальную базу `frontend_e2e_*`, применяет миграции и запускает настоящий
-Go API. После завершения стенд останавливает API/Next/TLS процессы,
-удаляет созданную базу и временные файлы. Playwright предоставляет 15 секунд
-на graceful shutdown. Контейнер `postgres-test` остаётся доступным для других
-тестов; при необходимости остановите его из `backend/`:
+Go API. После завершения, ошибки или Ctrl+C стенд останавливает свои
+API/Next/TLS процессы, удаляет созданную базу и временные файлы, а также
+останавливает и удаляет **только контейнер `postgres-test`** через
+`docker compose rm --stop --force postgres-test`. Development service `postgres`
+и его volume не затрагиваются. Очистка контейнера выполняется и при ошибке
+удаления базы или незавершённом запуске стенда. Teardown имеет до 45 секунд
+до принудительного завершения Playwright.
+
+`postgres-test` используется этим E2E-запуском целиком; не запускайте параллельно
+Go integration tests с тем же контейнером. Для удаления контейнера вручную из
+`backend/`:
 
 ```sh
-docker compose --profile test stop postgres-test
+docker compose --profile test rm --stop --force postgres-test
 ```
 
 Не подключайте production-базу к стенду. Используются исключительно локальные

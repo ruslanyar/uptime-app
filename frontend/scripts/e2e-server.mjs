@@ -11,14 +11,18 @@ const backend = resolve("../backend");
 const temporary = await mkdtemp(join(tmpdir(), "uptime-frontend-e2e-"));
 const database = `frontend_e2e_${randomBytes(8).toString("hex")}`;
 const children = [];
+const commands = new Set();
 const servers = [];
 let created = false;
+let postgresRequested = false;
 let closing = false;
 function command(cmd, args, options = {}) {
   return new Promise((done, fail) => {
     const child = spawn(cmd, args, { stdio: "inherit", ...options });
-    child.once("error", fail);
+    commands.add(child);
+    child.once("error", (error) => { commands.delete(child); fail(error); });
     child.once("exit", (code) => {
+      commands.delete(child);
       if (code === 0) done(); else fail(new Error(`${cmd} exited ${code}`));
     });
   });
@@ -30,28 +34,35 @@ function start(cmd, args, options) {
   child.on("exit", () => { if (!closing) void close(1); });
 }
 async function sql(statement) {
-  await command("docker", ["compose", "--profile", "test", "exec", "-T", "postgres-test", "psql", "-U", "uptime_test", "-d", "uptime_test", "-v", "ON_ERROR_STOP=1", "-c", statement], { cwd: backend });
+  await command("docker", ["compose", "-f", "compose.yaml", "--profile", "test", "exec", "-T", "postgres-test", "psql", "-U", "uptime_test", "-d", "uptime_test", "-v", "ON_ERROR_STOP=1", "-c", statement], { cwd: backend, timeout: 10000 });
 }
 async function close(code = 0) {
   if (closing) return;
   closing = true;
   for (const server of servers) server.close();
-  await Promise.all(children.map((child) => new Promise((done) => {
-    if (child.exitCode !== null || child.signalCode !== null) { done(); return; }
+  await Promise.all([...children, ...commands].map((child) => new Promise((done) => {
+    if (!child.pid || child.exitCode !== null || child.signalCode !== null) { done(); return; }
     const timeout = setTimeout(() => child.kill("SIGKILL"), 4000); timeout.unref();
     child.once("exit", () => { clearTimeout(timeout); done(); });
     child.kill("SIGTERM");
   })));
-  try {
-    if (created) await sql(`DROP DATABASE "${database}" WITH (FORCE)`);
-    await rm(temporary, { recursive: true, force: true });
-  } catch (error) { console.error(`E2E cleanup failed: ${error.message}`); code = 1; }
+  // Each cleanup step must run even if the preceding one failed.
+  const cleanup = async (task) => {
+    try { await task(); }
+    catch (error) { console.error(`E2E cleanup failed: ${error.message}`); code = 1; }
+  };
+  if (created) await cleanup(() => sql(`DROP DATABASE "${database}" WITH (FORCE)`));
+  if (postgresRequested) await cleanup(() => command("docker", [
+    "compose", "-f", "compose.yaml", "--profile", "test", "rm", "--stop", "--force", "postgres-test",
+  ], { cwd: backend, timeout: 20000 }));
+  await cleanup(() => rm(temporary, { recursive: true, force: true }));
   process.exit(code);
 }
 process.on("SIGTERM", () => void close());
 process.on("SIGINT", () => void close());
 try {
-  await command("docker", ["compose", "--profile", "test", "up", "-d", "--wait", "postgres-test"], { cwd: backend });
+  postgresRequested = true;
+  await command("docker", ["compose", "-f", "compose.yaml", "--profile", "test", "up", "-d", "--wait", "--wait-timeout", "60", "postgres-test"], { cwd: backend });
   await sql(`CREATE DATABASE "${database}"`); created = true;
   const env = { ...process.env, DATABASE_URL: `postgres://uptime_test:local-test-only@localhost:55432/${database}?sslmode=disable`, JWT_SECRET: process.env.FRONTEND_E2E_JWT_SECRET ?? randomBytes(32).toString("hex"), JWT_ISSUER: "frontend-e2e", JWT_AUDIENCE: "frontend-e2e" };
   await command("go", ["run", "./cmd/migrate", "up"], { cwd: backend, env });

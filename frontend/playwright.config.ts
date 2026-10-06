@@ -15,5 +15,5 @@ export default defineConfig({
     { name: "localhost", testIgnore: "**/third-party.spec.ts", use: { browserName: "chromium", baseURL: "http://localhost:13000" } },
     { name: "cross-site-https", use: { browserName: "chromium", baseURL: "https://frontend.auth-client.test:13443" } },
   ],
-  webServer: { command: "node scripts/e2e-server.mjs", url: "http://127.0.0.1:13999", timeout: 180000, reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 15000 } },
+  webServer: { command: "node scripts/e2e-server.mjs", url: "http://127.0.0.1:13999", timeout: 180000, reuseExistingServer: false, gracefulShutdown: { signal: "SIGTERM", timeout: 45000 } },
 });
