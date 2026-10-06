@@ -284,8 +284,8 @@ AUTH_BROWSER_CHECK=1 go test -v ./internal/storage/postgres -run TestBrowserCros
 ```
 
 Результаты реализации, включая интеграционные и браузерные проверки,
-записаны в [исходном плане](docs/plan/AUTH_PLAN.md) и
-[плане cookie-контракта](docs/plan/COOKIE_AUTH_PLAN.md). Генерируемые сборки `bin/`, зависимости,
+записаны в [исходном плане](../docs/backend/plan/AUTH_PLAN.md) и
+[плане cookie-контракта](../docs/backend/plan/COOKIE_AUTH_PLAN.md). Генерируемые сборки `bin/`, зависимости,
 coverage, cookie-файлы и секреты не включайте в коммиты.
 
 ## Изменение имени профиля

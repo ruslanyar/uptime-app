@@ -21,6 +21,8 @@ This project implements browser authentication using Next.js, TypeScript and the
 - `public/`: static assets.
 - `next.config.ts`, `tsconfig.json`, and `eslint.config.mjs`: framework, TypeScript, and lint configuration.
 
+Project documentation and implementation plans are in [../docs/frontend/](../docs/frontend/).
+
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 
 ## Build, Test, and Development Commands

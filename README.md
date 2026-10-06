@@ -61,10 +61,11 @@ npm run db:stop
 name создаёт отдельный набор контейнеров и данных, но использует те же порты.
 
 Проверка синтаксиса launcher: `bash -n scripts/dev.sh`.
-[Результаты проверки запуска и остановки](backend/docs/plan/DEV_ENV_PLAN.md).
+[Результаты проверки запуска и остановки](docs/backend/plan/DEV_ENV_PLAN.md).
 
+- [Общая документация](docs/README.md)
 - [Backend: запуск, API и проверки](backend/README.md)
 - [Frontend: запуск и разработка](frontend/README.md)
-- [План авторизации и выполненные проверки](backend/docs/plan/AUTH_PLAN.md)
-- [Текущий cookie-контракт авторизации](backend/docs/plan/COOKIE_AUTH_PLAN.md)
-- [План и приёмка авторизации фронтенда](frontend/docs/plan/AUTH_PLAN.md)
+- [План авторизации и выполненные проверки](docs/backend/plan/AUTH_PLAN.md)
+- [Текущий cookie-контракт авторизации](docs/backend/plan/COOKIE_AUTH_PLAN.md)
+- [План и приёмка авторизации фронтенда](docs/frontend/plan/AUTH_PLAN.md)

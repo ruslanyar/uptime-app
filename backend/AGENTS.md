@@ -14,6 +14,8 @@ This project implements an authentication HTTP API in Go with PostgreSQL. Access
 - `scripts/`: reproducible SQL generation and browser contract checks.
 - `go.mod`: pinned dependencies and required Go version.
 
+Project documentation and implementation plans are in [../docs/backend/](../docs/backend/).
+
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 
 ## Build, Test, and Development Commands
