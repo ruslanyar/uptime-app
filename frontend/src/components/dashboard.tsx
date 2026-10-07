@@ -25,7 +25,7 @@ export function Dashboard() {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
   // Retain this screen's user for logout and a failed session check during
-  // monitor creation, so request errors do not discard the form.
+  // monitor changes, so request errors do not discard the form.
   const [logoutUser, setLogoutUser] = useState<User>();
   const [monitorRequest, setMonitorRequest] = useState<{
     user: User;

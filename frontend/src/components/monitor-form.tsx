@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
+import { AuthError } from '@/lib/auth/api';
 import { monitorErrorMessage } from '@/lib/monitors/api';
 import {
   validateMonitor,
@@ -15,19 +16,36 @@ import {
 } from '@/lib/monitors/validation';
 
 export function MonitorForm({
-  onCreate,
+  onSubmit,
+  initialValues,
+  onReload,
   onCancel,
   disabled = false,
 }: {
-  onCreate: (input: MonitorInput) => Promise<void>;
+  onSubmit: (input: MonitorInput) => Promise<void>;
+  initialValues?: MonitorInput;
+  onReload?: () => void;
   onCancel: () => void;
   disabled?: boolean;
 }) {
-  const [url, setURL] = useState('');
-  const [amount, setAmount] = useState('5');
-  const [unit, setUnit] = useState<IntervalUnit>('minutes');
+  const editing = initialValues !== undefined;
+  const title = editing ? 'Редактирование сайта' : 'Новый сайт';
+  const seconds = initialValues?.interval_seconds ?? 300;
+  const initialUnit: IntervalUnit =
+    seconds % 3600 === 0 ? 'hours' : seconds % 60 === 0 ? 'minutes' : 'seconds';
+  const divisor =
+    initialUnit === 'hours' ? 3600 : initialUnit === 'minutes' ? 60 : 1;
+  const [url, setURL] = useState(initialValues?.url ?? '');
+  const [amount, setAmount] = useState(String(seconds / divisor));
+  const [unit, setUnit] = useState<IntervalUnit>(initialUnit);
   const [errors, setErrors] = useState<MonitorErrors>({});
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState<unknown>();
+  const needsReload =
+    editing &&
+    error instanceof AuthError &&
+    (error.status === 404 ||
+      error.kind === 'network' ||
+      error.kind === 'protocol');
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
   const urlInput = useRef<HTMLInputElement>(null);
@@ -40,14 +58,14 @@ export function MonitorForm({
     if (submitting.current || disabled) return;
     const result = validateMonitor(url, amount, unit);
     setErrors(result.errors);
-    setMessage('');
+    setError(undefined);
     if (!result.input) return;
     submitting.current = true;
     setPending(true);
     try {
-      await onCreate(result.input);
+      await onSubmit(result.input);
     } catch (error) {
-      setMessage(monitorErrorMessage(error, true));
+      setError(error);
     } finally {
       submitting.current = false;
       setPending(false);
@@ -58,7 +76,7 @@ export function MonitorForm({
     <Card className="mt-6 border-primary/25 px-6 sm:px-8">
       <div>
         <h3 id="monitor-form-title" className="text-xl font-medium">
-          Новый сайт
+          {title}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
           Укажите адрес сайта и интервал опроса.
@@ -142,15 +160,35 @@ export function MonitorForm({
               {errors.interval}
             </p>
           )}
-          {message && (
+          {error !== undefined && (
             <Alert className="border-destructive/30 bg-destructive/5 text-destructive">
-              {message}
+              <p>{monitorErrorMessage(error, editing ? 'update' : 'create')}</p>
+              {needsReload && onReload && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={onReload}
+                >
+                  Обновить список сайтов
+                </Button>
+              )}
             </Alert>
           )}
           <div className="flex flex-wrap gap-3">
             <Button type="submit">
-              <Plus aria-hidden="true" className="size-4" />
-              {pending ? 'Создаём…' : 'Создать'}
+              {editing ? (
+                <Save aria-hidden="true" className="size-4" />
+              ) : (
+                <Plus aria-hidden="true" className="size-4" />
+              )}
+              {editing
+                ? pending
+                  ? 'Сохраняем…'
+                  : 'Сохранить'
+                : pending
+                  ? 'Создаём…'
+                  : 'Создать'}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
               Отмена

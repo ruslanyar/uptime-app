@@ -6,7 +6,7 @@ import { AuthError } from '@/lib/auth/api';
 it('focuses the URL and cancels without submitting', () => {
   const cancel = vi.fn();
   const create = vi.fn();
-  render(<MonitorForm onCreate={create} onCancel={cancel} />);
+  render(<MonitorForm onSubmit={create} onCancel={cancel} />);
   expect(screen.getByLabelText('URL сайта')).toHaveFocus();
   fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
   expect(cancel).toHaveBeenCalledOnce();
@@ -14,7 +14,7 @@ it('focuses the URL and cancels without submitting', () => {
 });
 it('shows field errors without making a request', () => {
   const create = vi.fn();
-  render(<MonitorForm onCreate={create} onCancel={vi.fn()} />);
+  render(<MonitorForm onSubmit={create} onCancel={vi.fn()} />);
   fireEvent.change(screen.getByLabelText('Интервал опроса'), {
     target: { value: '0' },
   });
@@ -43,7 +43,7 @@ it.each([
           finish = resolve;
         }),
     );
-    render(<MonitorForm onCreate={create} onCancel={vi.fn()} />);
+    render(<MonitorForm onSubmit={create} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('URL сайта'), {
       target: { value: ' https://example.com ' },
     });
@@ -73,7 +73,7 @@ it.each([
   new AuthError('http', 500),
 ])('preserves inputs after an error', async (error) => {
   const create = vi.fn().mockRejectedValue(error);
-  render(<MonitorForm onCreate={create} onCancel={vi.fn()} />);
+  render(<MonitorForm onSubmit={create} onCancel={vi.fn()} />);
   fireEvent.change(screen.getByLabelText('URL сайта'), {
     target: { value: 'https://example.com' },
   });
@@ -83,3 +83,62 @@ it.each([
   expect(screen.getByLabelText('Интервал опроса')).toHaveValue(5);
   expect(screen.getByRole('button', { name: 'Создать' })).toBeEnabled();
 });
+
+it.each([
+  [7200, 2, 'hours'],
+  [300, 5, 'minutes'],
+  [90, 90, 'seconds'],
+])('prefills interval %s without losing precision', (seconds, amount, unit) => {
+  const submit = vi.fn();
+  const cancel = vi.fn();
+  render(
+    <MonitorForm
+      initialValues={{
+        url: 'https://example.com',
+        interval_seconds: Number(seconds),
+      }}
+      onSubmit={submit}
+      onCancel={cancel}
+    />,
+  );
+  expect(
+    screen.getByRole('form', { name: 'Редактирование сайта' }),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText('URL сайта')).toHaveValue('https://example.com');
+  expect(screen.getByLabelText('Интервал опроса')).toHaveValue(amount);
+  expect(screen.getByLabelText('Единица измерения')).toHaveValue(unit);
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  expect(submit).not.toHaveBeenCalled();
+  expect(cancel).toHaveBeenCalledOnce();
+});
+it.each([
+  new AuthError('http', 404),
+  new AuthError('network'),
+  new AuthError('protocol'),
+])(
+  'keeps an edit draft and offers reload after an uncertain result',
+  async (error) => {
+    const reload = vi.fn();
+    render(
+      <MonitorForm
+        initialValues={{ url: 'https://example.com', interval_seconds: 90 }}
+        onSubmit={vi.fn().mockRejectedValue(error)}
+        onCancel={vi.fn()}
+        onReload={reload}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('URL сайта'), {
+      target: { value: 'https://draft.example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('URL сайта')).toHaveValue(
+      'https://draft.example.com',
+    );
+    expect(screen.getByLabelText('Интервал опроса')).toHaveValue(90);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Обновить список сайтов' }),
+    );
+    expect(reload).toHaveBeenCalledOnce();
+  },
+);

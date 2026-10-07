@@ -125,3 +125,71 @@ it('rejects a creation response without a valid updated_at', async () => {
   ).rejects.toMatchObject({ kind: 'protocol' });
   expect(request).toHaveBeenCalledTimes(1);
 });
+
+it('updates with cookies and CSRF and preserves the server timestamp', async () => {
+  const updated = {
+    ...item,
+    url: 'https://edited.example.com',
+    interval_seconds: 90,
+    updated_at: '2026-10-07T12:00:00Z',
+  };
+  const request = vi
+    .fn()
+    .mockResolvedValue(new Response(JSON.stringify(updated)));
+  const input = {
+    url: updated.url,
+    interval_seconds: updated.interval_seconds,
+  };
+  expect(
+    await new MonitorAPI(() => 'https://api.example.com', request).update(
+      item.id,
+      input,
+    ),
+  ).toEqual(updated);
+  expect(request).toHaveBeenCalledExactlyOnceWith(
+    'https://api.example.com/api/v1/monitors/monitor-id',
+    expect.objectContaining({
+      method: 'PUT',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' },
+      body: JSON.stringify(input),
+    }),
+  );
+});
+it.each([400, 401, 404, 409, 500])(
+  'preserves update HTTP %s without retrying',
+  async (status) => {
+    const request = vi.fn().mockResolvedValue(new Response('{}', { status }));
+    await expect(
+      new MonitorAPI(() => 'https://api.example.com', request).update(
+        item.id,
+        item,
+      ),
+    ).rejects.toMatchObject({ kind: 'http', status });
+    expect(request).toHaveBeenCalledTimes(1);
+  },
+);
+it.each([
+  { ...item, id: 'other' },
+  { ...item, updated_at: 'invalid' },
+])('rejects malformed update responses', async (body) => {
+  const request = vi.fn().mockResolvedValue(new Response(JSON.stringify(body)));
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).update(
+      item.id,
+      item,
+    ),
+  ).rejects.toMatchObject({ kind: 'protocol' });
+  expect(request).toHaveBeenCalledTimes(1);
+});
+it('does not retry an update with an unknown network result', async () => {
+  const request = vi.fn().mockRejectedValue(new Error('offline'));
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).update(
+      item.id,
+      item,
+    ),
+  ).rejects.toMatchObject({ kind: 'network' });
+  expect(request).toHaveBeenCalledTimes(1);
+});

@@ -40,12 +40,14 @@ export class MonitorAPI {
   private async call(
     body?: MonitorInput,
     signal?: AbortSignal,
+    method: 'GET' | 'POST' | 'PUT' = body ? 'POST' : 'GET',
+    path = '',
   ): Promise<unknown> {
     const base = this.origin();
     let response: Response;
     try {
-      response = await this.request(`${base}/api/v1/monitors`, {
-        method: body ? 'POST' : 'GET',
+      response = await this.request(`${base}/api/v1/monitors${path}`, {
+        method,
         credentials: 'include',
         cache: 'no-store',
         signal,
@@ -74,6 +76,14 @@ export class MonitorAPI {
     return monitor(await this.call(input));
   }
 
+  async update(id: string, input: MonitorInput): Promise<Monitor> {
+    const value = monitor(
+      await this.call(input, undefined, 'PUT', `/${encodeURIComponent(id)}`),
+    );
+    if (value.id !== id) throw new AuthError('protocol');
+    return value;
+  }
+
   async list(signal?: AbortSignal): Promise<Monitor[]> {
     const value = await this.call(undefined, signal);
     if (
@@ -87,17 +97,24 @@ export class MonitorAPI {
   }
 }
 
-export function monitorErrorMessage(error: unknown, creating = false): string {
+export function monitorErrorMessage(
+  error: unknown,
+  operation: 'list' | 'create' | 'update' = 'list',
+): string {
   if (error instanceof AuthError) {
     if (error.status === 409)
       return 'Этот сайт уже добавлен. Проверьте список сайтов.';
+    if (error.status === 404)
+      return 'Сайт больше не найден. Обновите список сайтов.';
     if (error.status === 400) return 'Проверьте URL и интервал опроса.';
     if (error.status === 401) return 'Сессия истекла. Повторите вход.';
     if (error.kind === 'config') return 'Не настроен адрес сервера.';
     if (error.kind === 'network' || error.kind === 'protocol')
-      return creating
+      return operation === 'create'
         ? 'Не удалось подтвердить создание. Обновите список сайтов перед повторной попыткой.'
-        : 'Не удалось загрузить сайты. Проверьте подключение и повторите попытку.';
+        : operation === 'update'
+          ? 'Не удалось подтвердить сохранение. Обновите список сайтов перед повторной попыткой.'
+          : 'Не удалось загрузить сайты. Проверьте подключение и повторите попытку.';
   }
   return 'Не удалось выполнить запрос. Попробуйте ещё раз.';
 }

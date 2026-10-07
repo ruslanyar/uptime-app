@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { Activity, Clock3, Globe, Plus, RefreshCw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Activity, Clock3, Globe, Pencil, Plus, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { MonitorForm } from '@/components/monitor-form';
 import { Button } from '@/components/ui/button';
@@ -29,9 +29,16 @@ export function Monitors({
     error?: unknown;
   }>({ items: [], loading: true });
   const [revision, setRevision] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [created, setCreated] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [editor, setEditor] = useState<
+    { mode: 'create' } | { mode: 'update'; item: Monitor }
+  >();
+  const [message, setMessage] = useState('');
+  const [pending, setPending] = useState(false);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!editor) trigger.current?.focus();
+  }, [editor]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -72,8 +79,9 @@ export function Monitors({
     setRevision((previous) => previous + 1);
   }
 
-  async function create(input: MonitorInput) {
-    setCreating(true);
+  async function save(input: MonitorInput) {
+    if (!editor) return;
+    setPending(true);
     onRequestState?.('pending');
     let failed = false;
     try {
@@ -81,21 +89,31 @@ export function Monitors({
       const current = session.snapshot();
       if (current.status !== 'authenticated' || current.user?.id !== userID)
         throw current.error ?? new AuthError('http', 401);
-      const item = await api.create(input);
+      const item =
+        editor.mode === 'update'
+          ? await api.update(editor.item.id, input)
+          : await api.create(input);
       setState((previous) => ({
-        items: [
-          item,
-          ...previous.items.filter((existing) => existing.id !== item.id),
-        ],
+        items:
+          editor.mode === 'update'
+            ? previous.items.map((existing) =>
+                existing.id === item.id ? item : existing,
+              )
+            : [
+                item,
+                ...previous.items.filter((existing) => existing.id !== item.id),
+              ],
         loading: false,
       }));
-      setEditing(false);
-      setCreated(true);
+      setEditor(undefined);
+      setMessage(
+        editor.mode === 'update' ? 'Изменения сохранены.' : 'Сайт добавлен.',
+      );
     } catch (error) {
       failed = true;
       throw error;
     } finally {
-      setCreating(false);
+      setPending(false);
       onRequestState?.(
         failed && session.snapshot().status === 'error' ? 'failed' : 'idle',
       );
@@ -120,16 +138,19 @@ export function Monitors({
           <Button
             variant="outline"
             aria-label="Обновить список сайтов"
-            disabled={state.loading || creating}
+            disabled={state.loading || pending}
             onClick={reload}
           >
             <RefreshCw aria-hidden="true" className="size-4" />
           </Button>
           <Button
-            disabled={editing || state.loading || state.error !== undefined}
-            onClick={() => {
-              setEditing(true);
-              setCreated(false);
+            disabled={
+              !!editor || pending || state.loading || state.error !== undefined
+            }
+            onClick={(event) => {
+              trigger.current = event.currentTarget;
+              setEditor({ mode: 'create' });
+              setMessage('');
             }}
           >
             <Plus aria-hidden="true" className="size-4" />
@@ -137,16 +158,19 @@ export function Monitors({
           </Button>
         </div>
       </div>
-      {created && (
+      {message && (
         <p role="status" className="mt-4 text-sm text-primary">
-          Сайт добавлен.
+          {message}
         </p>
       )}
-      {editing && (
+      {editor && (
         <MonitorForm
-          onCreate={create}
+          key={editor.mode === 'update' ? editor.item.id : 'create'}
+          initialValues={editor.mode === 'update' ? editor.item : undefined}
+          onSubmit={save}
+          onReload={reload}
           onCancel={() => {
-            setEditing(false);
+            setEditor(undefined);
             onRequestState?.('idle');
           }}
           disabled={state.loading}
@@ -204,10 +228,31 @@ export function Monitors({
                     </p>
                   </div>
                 </div>
-                <p className="flex shrink-0 items-center gap-2 font-mono text-xs text-muted-foreground">
-                  <Clock3 aria-hidden="true" className="size-4" />
-                  Интервал: {formatInterval(item.interval_seconds)}
-                </p>
+                <div className="flex shrink-0 flex-wrap items-center gap-4">
+                  <p className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
+                    <Clock3 aria-hidden="true" className="size-4" />
+                    Интервал: {formatInterval(item.interval_seconds)}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Редактировать ${item.url}`}
+                    disabled={
+                      !!editor ||
+                      pending ||
+                      state.loading ||
+                      state.error !== undefined
+                    }
+                    onClick={(event) => {
+                      trigger.current = event.currentTarget;
+                      setEditor({ mode: 'update', item });
+                      setMessage('');
+                    }}
+                  >
+                    <Pencil aria-hidden="true" className="size-4" />
+                    Редактировать
+                  </Button>
+                </div>
               </Card>
             </li>
           ))}
