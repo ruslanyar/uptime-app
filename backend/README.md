@@ -7,23 +7,16 @@ Ctrl+C останавливает приложения и только само�
 сохраняя данные. Подробности — в [README репозитория](../README.md#запуск-всего-окружения).
 Ниже описан самостоятельный запуск этого проекта.
 
-
 Go 1.27+; PostgreSQL 17. Реализованы регистрация, вход, обновление access JWT,
-выход и получение пользователя. Мониторинг, подтверждение email,
-восстановление пароля и интеграция приложения фронтенда пока отсутствуют.
+выход, получение и редактирование профиля пользователя, CRUD мониторов
+и интеграция авторизации с фронтендом. Опрос сайтов, подтверждение email
+и восстановление пароля пока отсутствуют.
 
 Все команды ниже выполняются из `backend/`.
 
 ## Структура
 
-- `cmd/api` — API; `cmd/migrate` — отдельный запуск миграций.
-- `internal/app` — подключение БД, HTTP-сервер, таймауты и graceful shutdown.
-- `internal/config`, `internal/auth` — настройки и сервис авторизации.
-- `internal/controllers/auth` — контроллеры регистрации, входа, refresh, logout и `/me`.
-- `internal/httpapi` — маршруты, CORS/CSRF middleware и общие JSON-ответы.
-- `internal/storage/postgres` — транзакции и преобразование типов/ошибок БД.
-- `internal/storage/postgres/queries` — SQL; `sqlc` — коммитируемый генерируемый пакет.
-- `migrations` — общая схема для Tern и sqlc.
+[docs/backend/architecture.md](../docs/backend/architecture.md)
 
 ## Локальный запуск
 
@@ -72,7 +65,7 @@ export COOKIE_SAME_SITE=none
 учётные данные и защищённое соединение PostgreSQL. Не сохраняйте секреты в Git.
 
 | Переменная | Значение |
-|---|---|
+| --- | --- |
 | `DATABASE_URL` | Обязательный PostgreSQL URL |
 | `HTTP_ADDR` | Адрес HTTP, по умолчанию `:8080` |
 | `JWT_SECRET` | Обязательный секрет: минимум 32 случайных байта |
@@ -87,45 +80,14 @@ Wildcard, `null`, origins с путями/credentials/query/fragment не доп
 
 ## Миграции и SQL
 
-Tern **v2.4.3** закреплён в `go.mod`. Команды используют отдельное соединение,
-таблицу версии `public.schema_version`, транзакции и PostgreSQL advisory lock Tern:
-
-```sh
-go run ./cmd/migrate up      # до последней версии
-go run ./cmd/migrate status  # current=N target=M
-go run ./cmd/migrate down    # откат ровно одной миграции
-```
-
-Новые файлы называйте `00002_description.sql`, `00003_description.sql` и т.д.,
-с последовательными номерами шириной пять цифр. В одном файле обычный SQL применения
-и отката разделяются строкой `---- create above / drop below ----`.
-Не используйте шаблоны, Go-миграции или отключение транзакций.
-Не редактируйте уже применённые миграции; конфликты номеров между ветками разрешайте
-до применения. В production исправляйте схему новой миграцией. `down` предназначен
-для разработки и тестов и может удалять данные. Ошибка миграции откатывает её
-транзакцию без продвижения версии, ранее применённые миграции сохраняются.
-
-sqlc **v1.31.1** закреплён в `.sqlc-version`; читает SQL применения из того же каталога
-миграций, не SQL отката. Отдельного `schema.sql` нет.
-
-```sh
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
-export PATH="$(go env GOPATH)/bin:$PATH"
-sqlc compile
-sqlc generate
-sh scripts/check-sqlc.sh
-```
-
-После изменения SQL выполните генерацию и включите пакет `internal/storage/postgres/sqlc`
-в коммит. Генерируемый код вручную не редактируйте. Скрипт проверяет версию, SQL и
-две генерации без расхождений с сохранённым пакетом. Обычная Go-сборка sqlc не требует.
+[docs/backend/migrations.md](../docs/backend/migrations.md)
 
 ## HTTP-контракт
 
 Префикс `/api/v1/auth`:
 
 | Метод и путь | Вход | Ответ |
-|---|---|---|
+| --- | --- | --- |
 | `POST /register` | JSON `name`, `email`, `password` | `201`, `{user: {id,name,email}}`, две cookies |
 | `POST /login` | JSON `email`, `password` | `200`, `{user: {id,name,email}}`, две cookies |
 | `POST /refresh` | Refresh-cookie | `200`, `{user: {id,name,email}}`, две cookies |
@@ -141,7 +103,7 @@ sh scripts/check-sqlc.sh
 Secure/SameSite:
 
 | Cookie | Path | Срок |
-|---|---|---|
+| --- | --- | --- |
 | `access_token` | `/api/v1` | 24 часа |
 | `refresh_token` | `/api/v1/auth` | Оставшееся время 30-дневной сессии |
 
@@ -188,7 +150,7 @@ curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
 Присутствующий Origin всегда проверяется до выполнения обработчика.
 Для разрешённого Origin, включая ответы с ошибками, возвращаются точный
 `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials: true`, `Vary: Origin`.
-Preflight OPTIONS проверяет Origin, методы GET/POST и заголовки Content-Type,
+Preflight OPTIONS проверяет Origin, методы GET/POST/PUT/DELETE и заголовки Content-Type,
 Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и изменения состояния.
 `Sec-Fetch-Site: cross-site` сам по себе не запрещает запрос.
 
