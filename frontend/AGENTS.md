@@ -12,8 +12,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project Structure & Module Organization
 
-This project implements browser authentication using Next.js, TypeScript and the App Router. It calls the Go API directly with HttpOnly cookies. Uptime monitoring is not implemented yet.
-
 - `src/app/`: root layout, styles and login/register/account pages.
 - `src/components/`: AuthProvider, forms and session states.
 - `src/lib/auth/`: typed API, validation, session and browser coordination.
@@ -21,7 +19,7 @@ This project implements browser authentication using Next.js, TypeScript and the
 - `public/`: static assets.
 - `next.config.ts`, `tsconfig.json`, and `eslint.config.mjs`: framework, TypeScript, and lint configuration.
 
-Project documentation and implementation plans are in [../docs/frontend/](../docs/frontend/).
+Project documentation is in [../docs/frontend/](../docs/frontend/).
 
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 

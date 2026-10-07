@@ -2,8 +2,6 @@
 
 ## Project Structure & Module Organization
 
-This repository contains a Go backend and a Next.js frontend for an uptime monitoring service. Authentication, PostgreSQL persistence, HTTP APIs and frontend authentication integration are implemented. Uptime monitoring is not implemented yet.
-
 - `backend/` and `frontend/` each have their own README, configuration, and contributor guide.
 - Shared documentation is in `docs/`, grouped into `docs/backend/` and `docs/frontend/`; see [docs/README.md](docs/README.md).
 - Run commands from the relevant project directory.
@@ -11,6 +9,10 @@ This repository contains a Go backend and a Next.js frontend for an uptime monit
 ## Validation & Documentation
 
 Save implementation plans to files only when they were developed with the user in Plan mode. Do not create plan files for work performed in Default mode. When saving a plan, use `docs/backend/plan/` or `docs/frontend/plan/`, according to the project it concerns.
+
+Plans are task documents for defining work and tracking completion, not project documentation. Do not link to plans from READMEs or documentation indexes. Before completing a task, record all lasting setup instructions, contracts, and decisions in the main documentation so completed plans can be removed without losing necessary project information.
+
+Keep documentation actionable for agents: commands, constraints, validation, troubleshooting, and rules that affect implementation. Do not add feature inventories, change history, completed-test reports, or rationale without an actionable consequence. Use code and configuration as the source of truth for versions and implementation details; avoid duplicating them in prose.
 
 Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document any new test tooling, commands, or configuration in the relevant project README.
 
@@ -24,4 +26,4 @@ See [docs/rules/commits-pr.md](docs/rules/commits-pr.md)
 
 ## Security & Configuration
 
-Keep credentials out of source code and commits. Environment files are ignored; document required variables with placeholder values when configuration is introduced. Avoid committing generated builds, dependencies, or coverage output.
+Keep credentials out of source code and commits. Shared development/test env files may contain local defaults only. Keep personal values and secrets in ignored `.env*.local` files; use placeholders in configuration examples. Avoid committing generated builds, dependencies, or coverage output.

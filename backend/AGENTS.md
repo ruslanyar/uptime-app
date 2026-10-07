@@ -2,8 +2,6 @@
 
 ## Project Structure & Module Organization
 
-This project implements an authentication HTTP API in Go with PostgreSQL. Access and refresh tokens are delivered in HttpOnly cookies; public JSON responses contain user data only. Uptime monitoring is not implemented yet.
-
 - `cmd/api/`: HTTP API entry point; `cmd/migrate/`: separate Tern migration command.
 - `internal/app/`: application wiring, connection pool and HTTP lifecycle.
 - `internal/auth/`, `internal/config/`: authentication service and configuration.
@@ -14,7 +12,7 @@ This project implements an authentication HTTP API in Go with PostgreSQL. Access
 - `scripts/`: reproducible SQL generation and browser contract checks.
 - `go.mod`: pinned dependencies and required Go version.
 
-Project documentation and implementation plans are in [../docs/backend/](../docs/backend/).
+Project documentation is in [../docs/backend/](../docs/backend/).
 
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 

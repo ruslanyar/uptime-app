@@ -1,10 +1,13 @@
-# Структура
+# Размещение изменений
 
-- `cmd/api` — API; `cmd/migrate` — отдельный запуск миграций.
-- `internal/app` — подключение БД, HTTP-сервер, таймауты и graceful shutdown.
-- `internal/config`, `internal/auth` — настройки и сервис авторизации.
-- `internal/controllers/auth` — контроллеры регистрации, входа, refresh, logout и `/me`.
-- `internal/httpapi` — маршруты, CORS/CSRF middleware и общие JSON-ответы.
-- `internal/storage/postgres` — транзакции и преобразование типов/ошибок БД.
-- `internal/storage/postgres/queries` — SQL; `sqlc` — коммитируемый генерируемый пакет.
-- `migrations` — общая схема для Tern и sqlc.
+- HTTP-разбор и ответы меняйте в `internal/controllers/auth` или
+  `internal/controllers/monitor`; бизнес-правила — в `internal/auth` и `internal/monitor`.
+- Маршруты и общую защиту CORS/CSRF меняйте в `internal/httpapi`.
+- Подключение зависимостей и жизненный цикл API меняйте в `internal/app`;
+  `cmd/api` оставляйте точкой входа.
+- Проверку, хранение и выдачу файлов меняйте в `internal/avatar`.
+- SQL меняйте в `internal/storage/postgres/queries`, схему — новыми файлами
+  в `migrations`. Не редактируйте `internal/storage/postgres/sqlc` вручную;
+  см. [миграции и генерацию](migrations.md).
+- Для PostgreSQL-тестов используйте `internal/testdb`, не development-базу;
+  см. [проверки](testing.md).
