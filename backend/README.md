@@ -330,3 +330,40 @@ SVG и повреждённые изображения отклоняются. �
 `POST /api/v1/auth/profile`. Имя и удаление сохраняются вместе. После успешного
 обновления БД файл удаляется из локального каталога, `avatar_url` исчезает из
 ответов. Повторное удаление допустимо. При ошибке обновления прежний аватар сохраняется.
+
+## Создание точки мониторинга
+
+`POST /api/v1/monitors` сохраняет URL сайта и интервал будущего опроса для
+авторизованного пользователя. Сам опрос сайтов пока не реализован.
+Требуются access-cookie или `Authorization: Bearer <JWT>` и
+`X-CSRF-Protection: 1`; действуют существующие правила Origin/CORS и приоритета
+Authorization над cookie.
+
+Запрос: `{"url":"https://example.com","interval_seconds":300}`.
+Принимается только JSON-объект без неизвестных полей и дополнительных JSON-значений;
+лимит тела — 16 KiB. Интервал — целое число от 60 до 86 400 секунд включительно.
+URL после удаления пробелов по краям должен содержать схему HTTP(S), hostname
+и корректный необязательный порт; credentials и fragment запрещены.
+Длина URL — не более 2 048 байт. Пути, query, localhost и IP-адреса разрешены.
+Сервер не обращается к сайту и не проверяет его доступность.
+
+Ответ `201`: `{"id":"<uuid>","url":"https://example.com","interval_seconds":300,"created_at":"<UTC RFC3339 timestamp>"}`
+с `Cache-Control: no-store`. Владелец берётся из access token, а не из тела запроса.
+Повторный точный URL того же пользователя возвращает `409 monitor_conflict`,
+даже при другом интервале. URL сохраняется без нормализации регистра, пути или
+порта; разные пользователи могут сохранять одинаковые URL.
+Остальные ошибки используют `{error:{code,message}}`: `400 invalid_request`,
+`401 unauthorized`, `403` Origin/CSRF и `500 internal_error`.
+
+```sh
+curl -i -b /tmp/uptime-cookies.txt \
+  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
+  -d '{"url":"https://example.com","interval_seconds":300}' \
+  http://localhost:8080/api/v1/monitors
+```
+
+Перед запуском обновлённого API примените `00003_create_monitors.sql` командой
+`go run ./cmd/migrate up`. Точки хранятся в PostgreSQL и удаляются вместе с
+пользователем. Создание, ограничения, конкурентные дубликаты и HTTP-контракт
+проверяются существующими Go unit/integration командами; нового инструментария нет.
+План: [MONITOR_ENDPOINT_PLAN.md](../docs/backend/plan/MONITOR_ENDPOINT_PLAN.md).

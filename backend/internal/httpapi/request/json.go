@@ -1,4 +1,4 @@
-package authcontroller
+package request
 
 import (
 	"encoding/json"
@@ -10,7 +10,7 @@ import (
 	"uptime-app/backend/internal/auth"
 )
 
-func decode(w http.ResponseWriter, r *http.Request, v any) error {
+func Decode(w http.ResponseWriter, r *http.Request, v any) error {
 	media, _, e := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if e != nil || media != "application/json" {
 		return auth.ErrInvalid

@@ -2,6 +2,7 @@ package authcontroller
 
 import (
 	"net/http"
+	"uptime-app/backend/internal/httpapi/request"
 
 	"uptime-app/backend/internal/auth"
 )
@@ -12,7 +13,7 @@ func (a *Controller) Login(w http.ResponseWriter, r *http.Request) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	if e := decode(w, r, &v); e != nil {
+	if e := request.Decode(w, r, &v); e != nil {
 		serviceError(w, e)
 		return
 	}

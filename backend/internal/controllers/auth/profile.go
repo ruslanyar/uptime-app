@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"uptime-app/backend/internal/auth"
 	"uptime-app/backend/internal/avatar"
+	"uptime-app/backend/internal/httpapi/request"
 	"uptime-app/backend/internal/httpapi/response"
 )
 
 func (a *Controller) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	raw, e := accessToken(r)
+	raw, e := request.AccessToken(r)
 	if e != nil {
 		serviceError(w, e)
 		return
@@ -25,7 +26,7 @@ func (a *Controller) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		Name         string `json:"name"`
 		RemoveAvatar bool   `json:"remove_avatar"`
 	}
-	if e = decode(w, r, &v); e != nil {
+	if e = request.Decode(w, r, &v); e != nil {
 		serviceError(w, e)
 		return
 	}

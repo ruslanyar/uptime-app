@@ -38,7 +38,7 @@ func postAuth(handler http.Handler, path, body string, cookie *http.Cookie) *htt
 }
 func TestHTTPContract(t *testing.T) {
 	_, _, service, _ := setup(t)
-	handler := httpapi.New(service, config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}, CookieSameSite: http.SameSiteLaxMode})
+	handler := httpapi.New(service, nil, config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}, CookieSameSite: http.SameSiteLaxMode})
 	post := func(path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		return postAuth(handler, path, body, cookie)
 	}
@@ -157,7 +157,7 @@ func TestHTTPCookiesOnCommitFailure(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	handler := httpapi.New(service, config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}})
+	handler := httpapi.New(service, nil, config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}})
 	w := postAuth(handler, "register", `{"name":"User","email":"u@example.com","password":"long password here"}`, nil)
 	if w.Code != 500 || len(w.Result().Cookies()) != 0 {
 		t.Fatal("commit failure issued cookies")
