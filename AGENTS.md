@@ -5,9 +5,7 @@
 This repository contains a Go backend and a Next.js frontend for an uptime monitoring service. Authentication, PostgreSQL persistence, HTTP APIs and frontend authentication integration are implemented. Uptime monitoring is not implemented yet.
 
 - `backend/` and `frontend/` each have their own README, configuration, and contributor guide.
-- Follow [backend/AGENTS.md](backend/AGENTS.md) or [frontend/AGENTS.md](frontend/AGENTS.md) for project-specific structure, commands, style, and validation.
 - Shared documentation is in `docs/`, grouped into `docs/backend/` and `docs/frontend/`; see [docs/README.md](docs/README.md).
-- Reusable task and issue templates are in `docs/templates/`.
 - Run commands from the relevant project directory.
 
 ## Validation & Documentation
@@ -16,17 +14,13 @@ Save implementation plans to files only when they were developed with the user i
 
 Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document any new test tooling, commands, or configuration in the relevant project README.
 
+## New project tasks
+
+Use GitHub Flow for new project tasks; see [docs/rules/github-flow.md](docs/rules/github-flow.md)
+
 ## Commit & Pull Request Guidelines
 
-- Use GitHub Flow for project tasks: create a short-lived branch from the up-to-date default branch, make changes and validate them, then open a pull request.
-- Merge through a pull request after review and required checks pass; do not commit directly to the default branch. Delete the task branch after merging.
-- Use Conventional Commits: `<type>[optional scope]: <description>`.
-- Keep the subject line at most 72 characters and use concise, imperative descriptions.
-- No emojis, “significantly improved,” or other fluff.
-- Include a body only when needed to explain why, not what.
-- One logical change per commit.
-
-PRs should explain the change, link relevant issues, and list validation performed.
+See [docs/rules/commits-pr.md](docs/rules/commits-pr.md)
 
 ## Security & Configuration
 
