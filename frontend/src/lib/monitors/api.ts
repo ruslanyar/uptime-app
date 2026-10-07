@@ -40,7 +40,7 @@ export class MonitorAPI {
   private async call(
     body?: MonitorInput,
     signal?: AbortSignal,
-    method: 'GET' | 'POST' | 'PUT' = body ? 'POST' : 'GET',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = body ? 'POST' : 'GET',
     path = '',
   ): Promise<unknown> {
     const base = this.origin();
@@ -51,6 +51,9 @@ export class MonitorAPI {
         credentials: 'include',
         cache: 'no-store',
         signal,
+        ...(method === 'DELETE'
+          ? { headers: { 'X-CSRF-Protection': '1' } }
+          : {}),
         ...(body
           ? {
               headers: {
@@ -65,6 +68,10 @@ export class MonitorAPI {
       throw new AuthError('network');
     }
     if (!response.ok) throw new AuthError('http', response.status);
+    if (method === 'DELETE') {
+      if (response.status !== 204) throw new AuthError('protocol');
+      return;
+    }
     try {
       return await response.json();
     } catch {
@@ -84,6 +91,15 @@ export class MonitorAPI {
     return value;
   }
 
+  async delete(id: string): Promise<void> {
+    await this.call(
+      undefined,
+      undefined,
+      'DELETE',
+      `/${encodeURIComponent(id)}`,
+    );
+  }
+
   async list(signal?: AbortSignal): Promise<Monitor[]> {
     const value = await this.call(undefined, signal);
     if (
@@ -99,7 +115,7 @@ export class MonitorAPI {
 
 export function monitorErrorMessage(
   error: unknown,
-  operation: 'list' | 'create' | 'update' = 'list',
+  operation: 'list' | 'create' | 'update' | 'delete' = 'list',
 ): string {
   if (error instanceof AuthError) {
     if (error.status === 409)
@@ -114,7 +130,9 @@ export function monitorErrorMessage(
         ? 'Не удалось подтвердить создание. Обновите список сайтов перед повторной попыткой.'
         : operation === 'update'
           ? 'Не удалось подтвердить сохранение. Обновите список сайтов перед повторной попыткой.'
-          : 'Не удалось загрузить сайты. Проверьте подключение и повторите попытку.';
+          : operation === 'delete'
+            ? 'Не удалось подтвердить удаление. Обновите список сайтов перед повторной попыткой.'
+            : 'Не удалось загрузить сайты. Проверьте подключение и повторите попытку.';
   }
   return 'Не удалось выполнить запрос. Попробуйте ещё раз.';
 }

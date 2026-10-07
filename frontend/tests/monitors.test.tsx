@@ -8,13 +8,18 @@ import {
 import { beforeEach, expect, it, vi } from 'vitest';
 import { Monitors } from '@/components/monitors';
 import { AuthError } from '@/lib/auth/api';
+import { monitorErrorMessage } from '@/lib/monitors/api';
 
-const { list, create, update, session, current } = vi.hoisted(() => {
-  const current = { status: 'authenticated', user: { id: 'owner' } };
+const { list, create, update, remove, session, current } = vi.hoisted(() => {
+  const current: { status: string; user: { id: string }; error?: unknown } = {
+    status: 'authenticated',
+    user: { id: 'owner' },
+  };
   return {
     list: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    remove: vi.fn(),
     current,
     session: { check: vi.fn(), snapshot: () => current },
   };
@@ -26,6 +31,7 @@ vi.mock('@/lib/monitors/api', async (original) => ({
     list = list;
     create = create;
     update = update;
+    delete = remove;
   },
 }));
 const item = {
@@ -43,7 +49,9 @@ beforeEach(() => {
     url: 'https://updated.example.com',
     interval_seconds: 90,
   });
+  remove.mockReset().mockResolvedValue(undefined);
   session.check.mockReset().mockResolvedValue(undefined);
+  current.error = undefined;
   current.status = 'authenticated';
   current.user.id = 'owner';
 });
@@ -275,4 +283,137 @@ it('does not update after the session changes owner', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
   await screen.findByRole('alert');
   expect(update).not.toHaveBeenCalled();
+});
+
+it('requires confirmation and cancels without deleting', async () => {
+  list.mockResolvedValue([item]);
+  render(<Monitors userID="owner" />);
+  await screen.findByText(item.url);
+  const button = screen.getByRole('button', { name: `Удалить ${item.url}` });
+  fireEvent.click(button);
+  expect(
+    screen.getByRole('group', { name: `Удалить сайт ${item.url}?` }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Отмена' })).toHaveFocus();
+  expect(screen.getByRole('button', { name: 'Добавить сайт' })).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: `Редактировать ${item.url}` }),
+  ).toBeDisabled();
+  expect(remove).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  expect(button).toHaveFocus();
+  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  expect(remove).not.toHaveBeenCalled();
+});
+it('deletes only the confirmed item and preserves the other cards', async () => {
+  list.mockResolvedValue([
+    item,
+    { ...item, id: 'two', url: 'https://other.example.com' },
+  ]);
+  render(<Monitors userID="owner" />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить сайт' }));
+  await screen.findByText('Сайт удалён.');
+  expect(remove).toHaveBeenCalledExactlyOnceWith(item.id);
+  expect(screen.queryByText(item.url)).not.toBeInTheDocument();
+  expect(screen.getByText('https://other.example.com')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Добавить сайт' })).toHaveFocus();
+});
+it('blocks duplicate deletion and other actions, then shows the empty state', async () => {
+  list.mockResolvedValue([item]);
+  let finish!: () => void;
+  remove.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const requestState = vi.fn();
+  render(<Monitors userID="owner" onRequestState={requestState} />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  const confirm = screen.getByRole('button', {
+    name: 'Удалить сайт',
+  });
+  fireEvent.click(confirm);
+  fireEvent.click(confirm);
+  await waitFor(() => expect(remove).toHaveBeenCalledOnce());
+  expect(screen.getByRole('button', { name: 'Удаляем…' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Отмена' })).toBeDisabled();
+  expect(
+    screen.getByRole('button', { name: 'Обновить список сайтов' }),
+  ).toBeDisabled();
+  expect(requestState).toHaveBeenCalledWith('pending');
+  await act(async () => {
+    finish();
+  });
+  await screen.findByText('Пока нет сайтов');
+  expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  expect(requestState).toHaveBeenLastCalledWith('idle');
+});
+it.each([
+  new AuthError('http', 500),
+  new AuthError('http', 404),
+  new AuthError('network'),
+  new AuthError('protocol'),
+])('keeps the card and confirmation after deletion fails', async (error) => {
+  list.mockResolvedValue([item]);
+  remove.mockRejectedValue(error);
+  render(<Monitors userID="owner" />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить сайт' }));
+  await screen.findByText(monitorErrorMessage(error, 'delete'));
+  expect(screen.getByText(item.url)).toBeInTheDocument();
+  expect(screen.getByRole('group')).toBeInTheDocument();
+  expect(remove).toHaveBeenCalledOnce();
+  expect(screen.getByRole('button', { name: 'Удалить сайт' })).toBeEnabled();
+});
+it('reconciles a missing card after refreshing an uncertain deletion', async () => {
+  list.mockResolvedValueOnce([item]).mockResolvedValueOnce([]);
+  remove.mockRejectedValue(new AuthError('http', 404));
+  render(<Monitors userID="owner" />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить сайт' }));
+  await screen.findByText('Сайт больше не найден. Обновите список сайтов.');
+  const buttons = screen.getAllByRole('button', {
+    name: 'Обновить список сайтов',
+  });
+  fireEvent.click(buttons[buttons.length - 1]);
+  await screen.findByText('Пока нет сайтов');
+  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Добавить сайт' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Добавить сайт' })).toHaveFocus();
+  expect(remove).toHaveBeenCalledOnce();
+});
+it('does not delete after the session changes owner', async () => {
+  list.mockResolvedValue([item]);
+  render(<Monitors userID="owner" />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  current.user.id = 'other';
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить сайт' }));
+  await screen.findByText('Сессия истекла. Повторите вход.');
+  expect(remove).not.toHaveBeenCalled();
+});
+it('retains the confirmation if the session check loses connection', async () => {
+  list.mockResolvedValue([item]);
+  session.check.mockImplementationOnce(async () => {
+    current.status = 'error';
+    current.error = new AuthError('network');
+  });
+  const requestState = vi.fn();
+  render(<Monitors userID="owner" onRequestState={requestState} />);
+  await screen.findByText(item.url);
+  fireEvent.click(screen.getByRole('button', { name: `Удалить ${item.url}` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить сайт' }));
+  await screen.findByText(
+    'Не удалось подтвердить удаление. Обновите список сайтов перед повторной попыткой.',
+  );
+  expect(remove).not.toHaveBeenCalled();
+  expect(requestState).toHaveBeenLastCalledWith('failed');
+  fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+  expect(requestState).toHaveBeenLastCalledWith('idle');
 });

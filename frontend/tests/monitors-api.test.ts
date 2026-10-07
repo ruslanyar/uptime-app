@@ -193,3 +193,49 @@ it('does not retry an update with an unknown network result', async () => {
   ).rejects.toMatchObject({ kind: 'network' });
   expect(request).toHaveBeenCalledTimes(1);
 });
+
+it('deletes with cookies and CSRF without parsing the 204 body', async () => {
+  const response = new Response(null, { status: 204 });
+  const json = vi.spyOn(response, 'json');
+  const request = vi.fn().mockResolvedValue(response);
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).delete(item.id),
+  ).resolves.toBeUndefined();
+  expect(request).toHaveBeenCalledExactlyOnceWith(
+    'https://api.example.com/api/v1/monitors/monitor-id',
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      cache: 'no-store',
+      signal: undefined,
+      headers: { 'X-CSRF-Protection': '1' },
+    },
+  );
+  expect(json).not.toHaveBeenCalled();
+});
+it.each([400, 401, 404, 500])(
+  'preserves delete HTTP %s without retrying',
+  async (status) => {
+    const request = vi.fn().mockResolvedValue(new Response('{}', { status }));
+    await expect(
+      new MonitorAPI(() => 'https://api.example.com', request).delete(item.id),
+    ).rejects.toMatchObject({ kind: 'http', status });
+    expect(request).toHaveBeenCalledTimes(1);
+  },
+);
+it('reports an unknown delete result without retrying', async () => {
+  const request = vi.fn().mockRejectedValue(new Error('offline'));
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).delete(item.id),
+  ).rejects.toMatchObject({ kind: 'network' });
+  expect(request).toHaveBeenCalledTimes(1);
+});
+it('rejects an unexpected successful delete status', async () => {
+  const request = vi
+    .fn()
+    .mockResolvedValue(new Response('{}', { status: 200 }));
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).delete(item.id),
+  ).rejects.toMatchObject({ kind: 'protocol' });
+  expect(request).toHaveBeenCalledTimes(1);
+});

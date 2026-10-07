@@ -336,3 +336,169 @@ test('preserves an edit draft after conflict, server error and a failed session 
       .getByText(draft, { exact: true }),
   ).toBeVisible();
 });
+
+test('confirms deletion, prevents repeat requests and persists the empty state', async ({
+  page,
+}, info) => {
+  await register(page);
+  const url = `https://delete.example.com/${'long-path-'.repeat(15)}?source=uptime`;
+  await add(page, url, '5', 'minutes');
+  const open = page.getByRole('button', {
+    name: `Удалить ${url}`,
+    exact: true,
+  });
+  await open.focus();
+  await open.press('Enter');
+  const confirmation = page.getByRole('group', {
+    name: `Удалить сайт ${url}?`,
+  });
+  await expect(confirmation).toBeVisible();
+  await expect(
+    confirmation.getByRole('button', { name: 'Отмена' }),
+  ).toBeFocused();
+  await confirmation.getByRole('button', { name: 'Отмена' }).click();
+  await expect(open).toBeFocused();
+  await expect(confirmation).toHaveCount(0);
+  await page.reload();
+  await expect(open).toBeVisible();
+  await open.click();
+  for (const width of [1440, 640, 375]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `test-results/monitor-delete-${width}-${info.project.name}.png`,
+      fullPage: true,
+    });
+  }
+  let finish!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  let deletes = 0;
+  await page.route('**/api/v1/monitors/*', async (route) => {
+    if (route.request().method() === 'DELETE') {
+      deletes++;
+      await gate;
+    }
+    await route.continue();
+  });
+  await confirmation
+    .getByRole('button', { name: 'Удалить сайт', exact: true })
+    .click();
+  await expect(
+    confirmation.getByRole('button', { name: 'Удаляем…' }),
+  ).toBeDisabled();
+  await expect(
+    confirmation.getByRole('button', { name: 'Отмена' }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Обновить список сайтов', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Добавить сайт' }),
+  ).toBeDisabled();
+  await page.getByRole('button', { name: 'Меню пользователя' }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Выйти', exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press('Escape');
+  finish();
+  await expect(page.getByText('Сайт удалён.')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Пока нет сайтов' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Добавить сайт' }),
+  ).toBeFocused();
+  expect(deletes).toBe(1);
+  await page.unroute('**/api/v1/monitors/*');
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Пока нет сайтов' }),
+  ).toBeVisible();
+});
+
+test('retains deletion confirmation after errors and reconciles a missing monitor', async ({
+  page,
+}) => {
+  await register(page);
+  const original = 'https://delete-errors.example.com';
+  const other = 'https://keep.example.com';
+  await add(page, original, '5', 'minutes');
+  await add(page, other, '1', 'hours');
+  await page
+    .getByRole('button', { name: `Удалить ${original}`, exact: true })
+    .click();
+  const confirmation = page.getByRole('group', {
+    name: `Удалить сайт ${original}?`,
+  });
+  await page.route('**/api/v1/monitors/*', (route) =>
+    route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }),
+  );
+  await confirmation
+    .getByRole('button', { name: 'Удалить сайт', exact: true })
+    .click();
+  await expect(confirmation).toContainText('Не удалось выполнить запрос');
+  await page.unroute('**/api/v1/monitors/*');
+  await page.route('**/api/v1/auth/me', (route) => route.abort());
+  await confirmation
+    .getByRole('button', { name: 'Удалить сайт', exact: true })
+    .click();
+  await expect(confirmation).toContainText('Не удалось подтвердить удаление');
+  await page.unroute('**/api/v1/auth/me');
+  let deletes = 0;
+  await page.route('**/api/v1/monitors/*', async (route) => {
+    if (route.request().method() !== 'DELETE') {
+      await route.continue();
+      return;
+    }
+    deletes++;
+    // Commit the deletion but lose its response, leaving the UI uncertain.
+    const target = new URL(route.request().url());
+    // Node's request client does not use Chromium's test-domain resolver.
+    target.hostname = '127.0.0.1';
+    const response = await route.fetch({ url: target.href });
+    expect(response.status()).toBe(204);
+    await route.abort();
+  });
+  await confirmation
+    .getByRole('button', { name: 'Удалить сайт', exact: true })
+    .click();
+  await expect(confirmation).toContainText('Не удалось подтвердить удаление');
+  expect(deletes).toBe(1);
+  await expect(
+    page.getByRole('button', { name: `Удалить ${original}`, exact: true }),
+  ).toBeVisible();
+  await page.unroute('**/api/v1/monitors/*');
+  await confirmation
+    .getByRole('button', { name: 'Удалить сайт', exact: true })
+    .click();
+  await expect(confirmation).toContainText('Сайт больше не найден');
+  await confirmation
+    .getByRole('button', { name: 'Обновить список сайтов', exact: true })
+    .click();
+  await expect(confirmation).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: `Удалить ${original}`, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .getByRole('list', { name: 'Сайты для мониторинга' })
+      .getByRole('listitem'),
+  ).toHaveCount(1);
+  await expect(page.getByText(other, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Добавить сайт' }),
+  ).toBeEnabled();
+  await page.reload();
+  await expect(
+    page
+      .getByRole('list', { name: 'Сайты для мониторинга' })
+      .getByRole('listitem'),
+  ).toHaveCount(1);
+  await expect(page.getByText(other, { exact: true })).toBeVisible();
+});
