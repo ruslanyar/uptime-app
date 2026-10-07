@@ -21,7 +21,7 @@ func TestAvatarUpload(t *testing.T) {
 	ctx, _, service, _ := setup(t)
 	account := register(t, ctx, service)
 	dir := t.TempDir()
-	handler := httpapi.New(service, config.Config{AvatarDir: dir})
+	handler := httpapi.New(service, nil, config.Config{AvatarDir: dir})
 	var data bytes.Buffer
 	png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2)))
 	upload := func(content []byte, name, token, csrf string, extra bool) *httptest.ResponseRecorder {

@@ -7,14 +7,16 @@ import (
 
 	"uptime-app/backend/internal/config"
 	authcontroller "uptime-app/backend/internal/controllers/auth"
+	monitorcontroller "uptime-app/backend/internal/controllers/monitor"
 )
 
 // Service is the authentication contract used by the HTTP API.
 type Service = authcontroller.Service
 
-func New(service Service, cfg config.Config) http.Handler {
+func New(service Service, monitors monitorcontroller.Service, cfg config.Config) http.Handler {
 	controller := authcontroller.New(service, cfg)
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/v1/monitors", monitorcontroller.New(service, monitors).Create)
 	mux.HandleFunc("POST /api/v1/auth/register", controller.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", controller.Login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", controller.Refresh)
