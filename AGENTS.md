@@ -18,7 +18,13 @@ Run the checks specified in each affected project's guide. No coverage threshold
 
 ## Commit & Pull Request Guidelines
 
-Write commit messages according to Conventional Commits: `<type>[optional scope]: <description>`, for example, `feat(backend): add health endpoint` or `fix(frontend): correct monitor status`. Use concise, imperative descriptions. PRs should explain the change, link relevant issues, and list validation performed.
+- Use Conventional Commits: `<type>[optional scope]: <description>`.
+- Keep the subject line at most 72 characters and use concise, imperative descriptions.
+- No emojis, “significantly improved,” or other fluff.
+- Include a body only when needed to explain why, not what.
+- One logical change per commit.
+
+PRs should explain the change, link relevant issues, and list validation performed.
 
 ## Security & Configuration
 
