@@ -18,6 +18,8 @@ Run the checks specified in each affected project's guide. No coverage threshold
 
 ## Commit & Pull Request Guidelines
 
+- Use GitHub Flow for project tasks: create a short-lived branch from the up-to-date default branch, make changes and validate them, then open a pull request.
+- Merge through a pull request after review and required checks pass; do not commit directly to the default branch. Delete the task branch after merging.
 - Use Conventional Commits: `<type>[optional scope]: <description>`.
 - Keep the subject line at most 72 characters and use concise, imperative descriptions.
 - No emojis, “significantly improved,” or other fluff.
