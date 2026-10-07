@@ -382,9 +382,7 @@ test('dark UI stays responsive with long account details', async ({
           path: `test-results/ui-menu-${width}-${info.project.name}.png`,
           fullPage: true,
         });
-        await page
-          .getByRole('heading', { name: 'Мониторинг скоро появится' })
-          .click();
+        await page.getByRole('heading', { name: 'Ваши сайты' }).click();
         await expect(page.getByRole('menu')).not.toBeVisible();
       }
     }
