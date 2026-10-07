@@ -1,16 +1,11 @@
 # Backend
 
 Для совместного локального запуска из корня репозитория выполните `npm run dev`.
-Команда поднимает PostgreSQL, применяет миграции и запускает API с фронтендом;
-настройки и постоянный локальный JWT-секрет готовятся автоматически.
-Ctrl+C останавливает приложения и только самостоятельно запущенную PostgreSQL,
-сохраняя данные. Подробности — в [README репозитория](../README.md#запуск-всего-окружения).
-Ниже описан самостоятельный запуск этого проекта.
+Команда поднимает БД, применяет миграции и запускает API с фронтендом.
+Подготовка окружения и остановка — в
+[README репозитория](../README.md#запуск-всего-окружения).
 
-Go 1.27+; PostgreSQL 17. Реализованы регистрация, вход, обновление access JWT,
-выход, получение и редактирование профиля пользователя, CRUD мониторов
-и интеграция авторизации с фронтендом. Опрос сайтов, подтверждение email
-и восстановление пароля пока отсутствуют.
+Требуются Go 1.27+ и PostgreSQL 17.
 
 Все команды ниже выполняются из `backend/`.
 
@@ -29,54 +24,11 @@ go run ./cmd/migrate status
 go run ./cmd/api
 ```
 
-API и мигратор автоматически читают `.env.development` из корня backend,
-включая запуск из вложенных каталогов. `APP_ENV=test` выбирает `.env.test`;
-поддерживаются только `development` (по умолчанию) и `test`.
-Все настройки перечислены в `.env.example`; в `.env.development` находятся
-локальные значения, в `.env.test` — отдельная одноразовая тестовая БД и тестовый ключ.
-Общие файлы коммитируются, личные секреты записывайте только в `.env*.local`.
-Compose читает настройки PostgreSQL из файлов соответствующей среды и их `.local`.
-При изменении учётных данных измените также URL; существующий development volume
-сохраняет учётные данные, с которыми был создан. Порты Compose — 5432 и 55432.
-Требуется Compose 2.24+ для необязательных `env_file`.
+API не применяет миграции автоматически. Требуются Docker и Compose 2.24+.
 
-Приоритет: переменные процесса → `.env.<среда>.local` → `.env.local`
-(только development) → `.env.<среда>` → `.env`.
-Отсутствующий файл выбранной среды или ошибка синтаксиса останавливают запуск.
-Загрузка не изменяет окружение процесса. Используется `godotenv` v1.5.1.
-API не применяет миграции автоматически.
+## Конфигурация
 
-Следующий пример описывает HTTPS-параметры, а не отдельную production-среду:
-
-Для фронтенда и API на несвязанных HTTPS-доменах:
-
-```sh
-export DATABASE_URL='postgres://<user>:<password>@<database-host>/<database>?sslmode=verify-full'
-export HTTP_ADDR=':8080'
-export JWT_SECRET='<replace-with-at-least-32-random-bytes>'
-export JWT_ISSUER='https://api.example.net'
-export JWT_AUDIENCE='https://dashboard.example.org'
-export ALLOWED_ORIGINS='https://dashboard.example.org'
-export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=none
-```
-
-Завершите HTTPS на reverse proxy перед API. В production задавайте отдельные
-учётные данные и защищённое соединение PostgreSQL. Не сохраняйте секреты в Git.
-
-| Переменная | Значение |
-| --- | --- |
-| `DATABASE_URL` | Обязательный PostgreSQL URL |
-| `HTTP_ADDR` | Адрес HTTP, по умолчанию `:8080` |
-| `JWT_SECRET` | Обязательный секрет: минимум 32 случайных байта |
-| `JWT_ISSUER`, `JWT_AUDIENCE` | Обязательные issuer и audience |
-| `ALLOWED_ORIGINS` | Обязательный список точных origins через запятую |
-| `COOKIE_SECURE` | `true` по умолчанию |
-| `COOKIE_SAME_SITE` | `none` по умолчанию; также `lax`, `strict` |
-
-Wildcard, `null`, origins с путями/credentials/query/fragment не допускаются.
-Схема и порт входят в origin; поддомены автоматически не разрешаются.
-`none` с `COOKIE_SECURE=false` вызывает ошибку запуска.
+[docs/backend/configuration.md](../docs/backend/configuration.md)
 
 ## Миграции и SQL
 
@@ -84,69 +36,44 @@ Wildcard, `null`, origins с путями/credentials/query/fragment не доп
 
 ## HTTP-контракт
 
-Префикс `/api/v1/auth`:
+Пути указаны относительно `/api/v1`:
 
 | Метод и путь | Вход | Ответ |
 | --- | --- | --- |
-| `POST /register` | JSON `name`, `email`, `password` | `201`, `{user: {id,name,email}}`, две cookies |
-| `POST /login` | JSON `email`, `password` | `200`, `{user: {id,name,email}}`, две cookies |
-| `POST /refresh` | Refresh-cookie | `200`, `{user: {id,name,email}}`, две cookies |
-| `POST /logout` | Refresh-cookie | `204`, удаление обеих cookies |
-| `GET /me` | Access-cookie или `Authorization: Bearer <JWT>` | `200`, `{id,name,email}` |
+| `POST /auth/register` | JSON `name`, `email`, `password` | `201`, `{user: User}`, две cookies |
+| `POST /auth/login` | JSON `email`, `password` | `200`, `{user: User}`, две cookies |
+| `POST /auth/refresh` | Refresh-cookie | `200`, `{user: User}`, две cookies |
+| `POST /auth/logout` | Refresh-cookie | `204`, удаление обеих cookies |
+| `GET /auth/me` | Access-cookie или Bearer JWT | `200`, `User` |
+| `POST /auth/profile` | Access token; JSON `name`, необязательный `remove_avatar` или multipart `name` + `avatar` | `200`, `{user: User}` |
+| `GET /avatars/{filename}` | Без авторизации | `200`, изображение; `404`, если файл отсутствует или имя недопустимо |
+| `POST /monitors` | Access token; JSON `url`, `interval_seconds` | `201`, `Monitor` |
+| `GET /monitors` | Access token | `200`, `{monitors: Monitor[]}` |
+| `PUT /monitors/{id}` | Access token; UUID; JSON `url`, `interval_seconds` | `200`, `Monitor` |
+| `DELETE /monitors/{id}` | Access token; UUID | `204`, без тела |
 
-Ответ регистрации, входа и refresh: `{user:{id,name,email}}` с
-`Cache-Control: no-store`. Токены и поля `token_type` / `expires_in` в JSON
-не возвращаются. Это несовместимое изменение прежнего контракта:
-клиенты, ожидающие `access_token` в JSON, должны перейти на cookies.
+`User` содержит `id`, `name`, `email` и необязательный `avatar_url`.
+`Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`.
+Ответы контроллеров авторизации, профиля и мониторов имеют `Cache-Control: no-store`.
+Токены в JSON не возвращаются; параметры cookies описаны в
+[авторизации](../docs/backend/authentication.md), кеширование изображений —
+в [профиле и аватарах](../docs/backend/profile.md).
 
-Оба токена передаются в HttpOnly cookies без Domain, с настроенными
-Secure/SameSite:
+Маршруты, требующие access token, принимают JWT из access-cookie или
+`Authorization: Bearer <JWT>`; присутствующий `Authorization` имеет приоритет.
+Неверный, пустой или дублирующийся заголовок возвращает `401`,
+даже если cookie действительна.
 
-| Cookie | Path | Срок |
-| --- | --- | --- |
-| `access_token` | `/api/v1` | 24 часа |
-| `refresh_token` | `/api/v1/auth` | Оставшееся время 30-дневной сессии |
-
-Refresh заменяет обе cookies, не продлевая абсолютный срок сессии.
-`/me` проверяет JWT из access-cookie; присутствующий `Authorization` имеет
-приоритет. Неверный, пустой или дублирующийся заголовок возвращает `401`,
-даже если cookie действительна. Cookies выдаются только после успешного commit.
-Logout и refresh с ответом `401` удаляют обе cookies с исходными параметрами;
-внутренние ошибки refresh и logout cookies не изменяют. Logout без сессии
-идемпотентен и также удаляет обе cookies.
-
-Logout и повторное использование старого refresh отзывают refresh-сессию;
-скопированный ранее access JWT действует до своего истечения. Входы создают
-независимые сессии. БД хранит только SHA-256-хеши refresh и сохраняет
-использованные токены для обнаружения повторного использования.
-
-Имя: 2–50 символов после trim; email: trim + нижний регистр, корректный формат,
-до 254 байт; пароль: 15–128 Unicode-символов, пробелы сохраняются, требований к составу нет.
-Регистрация и вход принимают только JSON, неизвестные поля и тела более 16 KiB отклоняются.
+JSON-запросы требуют `Content-Type: application/json`: принимается один объект,
+неизвестные поля, дополнительные JSON-значения и тела более 16 KiB отклоняются.
+Для multipart профиля действуют отдельные ограничения из документации аватаров.
 
 Ошибка: `{error:{code,message}}`. Статусы: `400` некорректный запрос,
-`401` неверные данные/токен, `403` Origin/CSRF, `409` занятый email, `500` ошибка сервера.
-Неизвестный email и неверный пароль возвращают одинаковую ошибку входа.
-Logout без сессии идемпотентен.
+`401` неверные данные/токен, `403` Origin/CSRF, `404` монитор не найден,
+`409` занятый email или URL монитора, `413` превышен лимит multipart, `500` ошибка сервера.
+Ответы публичного маршрута аватаров с ошибкой `404` не используют JSON-конверт.
 
-```sh
-curl -i -c /tmp/uptime-cookies.txt \
-  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
-  -d '{"name":"Example","email":"user@example.com","password":"example password here"}' \
-  http://localhost:8080/api/v1/auth/register
-curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
-  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
-  -d '{"email":"user@example.com","password":"example password here"}' \
-  http://localhost:8080/api/v1/auth/login
-curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
-  -H 'X-CSRF-Protection: 1' http://localhost:8080/api/v1/auth/refresh -X POST
-curl -i -b /tmp/uptime-cookies.txt \
-  http://localhost:8080/api/v1/auth/me
-curl -i -b /tmp/uptime-cookies.txt -c /tmp/uptime-cookies.txt \
-  -H 'X-CSRF-Protection: 1' http://localhost:8080/api/v1/auth/logout -X POST
-```
-
-На каждом POST требуется `X-CSRF-Protection: 1`, включая CLI без Origin.
+На каждом POST, PUT и DELETE требуется `X-CSRF-Protection: 1`, включая CLI без Origin.
 Присутствующий Origin всегда проверяется до выполнения обработчика.
 Для разрешённого Origin, включая ответы с ошибками, возвращаются точный
 `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials: true`, `Vary: Origin`.
@@ -154,227 +81,31 @@ Preflight OPTIONS проверяет Origin, методы GET/POST/PUT/DELETE и
 Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и изменения состояния.
 `Sec-Fetch-Site: cross-site` сам по себе не запрещает запрос.
 
-Клиент для всех маршрутов, включая `/me`, использует `credentials: "include"`.
-На каждом POST нужен CSRF-заголовок; токены не читаются из JSON или cookies
-и не сохраняются в JavaScript. Например:
+## Авторизация
 
-```js
-await fetch(`${apiBase}/api/v1/auth/refresh`, {
-  method: "POST",
-  credentials: "include",
-  headers: { "X-CSRF-Protection": "1" },
-});
-```
-
-На клиенте сериализуйте refresh: одновременные запросы одним токеном вызовут отзыв
-сессии при обнаружении повторного использования. Браузер может блокировать
-сторонние cookie даже с правильным CORS и `SameSite=None; Secure`
-([MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS#third-party_cookies)).
-В таком окружении потребуется проксирование API через origin фронтенда;
-реализация прокси в эту задачу не входит.
+[docs/backend/authentication.md](../docs/backend/authentication.md)
 
 ## Проверки
 
-Используются стандартный Go testing, настоящая PostgreSQL через Docker Compose,
-а для отдельного браузерного сценария — Node.js и Playwright.
-
-### Go integration tests с PostgreSQL
-
-Требуются Go 1.27+ и работающий Docker с Compose 2.24+.
-Из корня репозитория выполните:
+Для полной проверки из `backend/`:
 
 ```sh
-cd backend
 docker compose --profile test up -d --wait postgres-test
-go test -v -count=1 ./internal/migrations ./internal/storage/postgres
-```
-
-Compose запускает изолированную PostgreSQL на порту 55432 и ждёт готовности.
-Тесты автоматически читают `TEST_DATABASE_URL` из `backend/.env.test`;
-экспортировать переменные, запускать API/frontend или применять миграции вручную
-не требуется. Каждый тест создаёт собственную временную БД, применяет миграции
-и удаляет БД после завершения. Development-база не используется.
-Не запускайте одновременно frontend E2E: они управляют тем же `postgres-test`.
-
-`-v` показывает отдельные проверки, `-count=1` отключает кеш результатов Go.
-Успешный результат — `PASS` и `ok` для обоих пакетов. `TestBrowserCrossSite`
-по умолчанию имеет `SKIP`: это отдельная браузерная проверка, описанная ниже.
-Остальные интеграционные тесты должны выполняться без пропусков.
-Если они сообщают `TEST_DATABASE_URL is not set`, проверьте `.env.test` и уберите
-пустой `TEST_DATABASE_URL` из окружения процесса: он имеет приоритет над файлом.
-
-После проверки остановите тестовую PostgreSQL (из `backend/`):
-
-```sh
-docker compose --profile test stop postgres-test
-```
-
-Тестовые данные хранятся в tmpfs; остановка тестового сервиса не затрагивает
-volume базы разработки. Для собственной тестовой БД задайте URL в
-`.env.test.local`; её пользователь должен иметь CREATEDB.
-
-### Полная проверка backend
-
-Из `backend/`, с запущенной тестовой PostgreSQL:
-
-```sh
 sh scripts/check-sqlc.sh  # требует sqlc версии из .sqlc-version
 go test ./... -count=1
 go vet ./...
 go build -o bin/api ./cmd/api
-# Дополнительная проверка гонок:
-go test -race ./... -count=1
 ```
 
-### Отдельная браузерная проверка
+Подготовка sqlc — в [миграциях и SQL](../docs/backend/migrations.md).
+Интеграционные тесты должны выполняться без пропусков; браузерный сценарий
+запускается отдельно. Подробности, дополнительные проверки и остановка БД —
+в [docs/backend/testing.md](../docs/backend/testing.md).
 
-Браузерный тест поднимает временные HTTPS API и страницу на разных сайтах
-`api.auth-service.test` и `frontend.auth-client.test`; приложение фронтенда не меняет.
-Chromium разрешает сторонние cookie для этого сценария; тестовые TLS-сертификаты
-принимаются только внутри браузерного контекста проверки.
+## Профиль и аватары
 
-```sh
-npm install --prefix /tmp/uptime-auth-browser --no-save playwright@1.56.1
-export PLAYWRIGHT_MODULE=/tmp/uptime-auth-browser/node_modules/playwright
-# Если Chrome установлен, укажите его.
-export BROWSER_EXECUTABLE=/usr/bin/google-chrome
+[docs/backend/profile.md](../docs/backend/profile.md)
 
-# Альтернатива без системного Chrome:
-# node /tmp/uptime-auth-browser/node_modules/playwright/cli.js install chromium
-# unset BROWSER_EXECUTABLE
-# При унаследованном HTTP-прокси исключите локальные тестовые домены:
-export NO_PROXY=localhost,127.0.0.1,.auth-client.test,.auth-service.test
-export no_proxy="$NO_PROXY"
-AUTH_BROWSER_CHECK=1 go test -v ./internal/storage/postgres -run TestBrowserCrossSite -count=1
-```
+## Мониторы
 
-Результаты реализации, включая интеграционные и браузерные проверки,
-записаны в [исходном плане](../docs/backend/plan/AUTH_PLAN.md) и
-[плане cookie-контракта](../docs/backend/plan/COOKIE_AUTH_PLAN.md). Генерируемые сборки `bin/`, зависимости,
-coverage, cookie-файлы и секреты не включайте в коммиты.
-
-## Изменение имени профиля
-
-`POST /api/v1/auth/profile` принимает JSON `{ "name": "Новое имя" }` и возвращает
-`{ "user": { "id": "…", "name": "Новое имя", "email": "…" } }`. Нужен действующий
-access token (cookie или Bearer) и `X-CSRF-Protection: 1`. Пробелы по краям
-удаляются; длина имени — 2–50 Unicode-символов. Другие поля отклоняются.
-Имя сохраняется только для владельца access token; email и пароль не меняются.
-
-## Аватары профиля
-
-`POST /api/v1/auth/profile` принимает JSON `{name}` для изменения имени или
-`multipart/form-data` с полями `name` и одним файлом `avatar` для сохранения имени
-и аватара вместе. Требуются access-cookie (или Bearer JWT) и
-`X-CSRF-Protection: 1`. Ответ: `{user:{id,name,email,avatar_url?}}`.
-Путь `avatar_url` также возвращается в `/me`, login и refresh; у пользователя
-без аватара поле отсутствует. Клиент добавляет к пути origin API.
-
-Поддерживаются JPEG, PNG, WebP и GIF. Сервер проверяет содержимое декодированием,
-а не расширение или MIME-заголовок. Лимит файла — **500 КБ (512 000 байт)**,
-дополнительно ограничены размеры изображения: не более 16 миллионов пикселей.
-SVG и повреждённые изображения отклоняются. Невалидный файл возвращает `400`,
-тело multipart больше лимита файла плюс 16 КБ служебных данных — `413`.
-
-Файлы сохраняются под случайными именами в `uploads/avatars` относительно
-рабочего каталога API (по умолчанию `backend/uploads/avatars` при запуске из
-`backend/`). Переменная `AVATAR_DIR` меняет этот путь. Папка `backend/uploads/`
-исключена из Git; для собственного пути настройте соответствующее исключение.
-Каталог должен быть доступен процессу API для записи, сохраняться между перезапусками
-и резервироваться вместе с БД. Все экземпляры API должны использовать общий каталог.
-Изображения доступны публично по `GET /api/v1/avatars/<имя>`; URL изменяется
-при замене, прежний файл удаляется после сохранения профиля. Листинг каталога
-и произвольные файлы не выдаются. Ошибка сохранения профиля удаляет новый файл.
-
-Перед запуском обновлённого API примените миграцию `00002_add_user_avatar.sql`:
-`go run ./cmd/migrate up`. Для декодирования WebP используется `golang.org/x/image`.
-Проверки форматов, ограничений, загрузки, замены и восстановления пользователя
-включены в обычные `go test ./...` и PostgreSQL integration tests.
-
-Для удаления аватара отправьте JSON `{name, remove_avatar: true}` на
-`POST /api/v1/auth/profile`. Имя и удаление сохраняются вместе. После успешного
-обновления БД файл удаляется из локального каталога, `avatar_url` исчезает из
-ответов. Повторное удаление допустимо. При ошибке обновления прежний аватар сохраняется.
-
-## Создание точки мониторинга
-
-`POST /api/v1/monitors` сохраняет URL сайта и интервал будущего опроса для
-авторизованного пользователя. Сам опрос сайтов пока не реализован.
-Требуются access-cookie или `Authorization: Bearer <JWT>` и
-`X-CSRF-Protection: 1`; действуют существующие правила Origin/CORS и приоритета
-Authorization над cookie.
-
-Запрос: `{"url":"https://example.com","interval_seconds":300}`.
-Принимается только JSON-объект без неизвестных полей и дополнительных JSON-значений;
-лимит тела — 16 KiB. Интервал — целое число от 60 до 86 400 секунд включительно.
-URL после удаления пробелов по краям должен содержать схему HTTP(S), hostname
-и корректный необязательный порт; credentials и fragment запрещены.
-Длина URL — не более 2 048 байт. Пути, query, localhost и IP-адреса разрешены.
-Сервер не обращается к сайту и не проверяет его доступность.
-
-Ответ `201`: `{"id":"<uuid>","url":"https://example.com","interval_seconds":300,"created_at":"<UTC RFC3339 timestamp>","updated_at":"<UTC RFC3339 timestamp>"}`
-с `Cache-Control: no-store`. Владелец берётся из access token, а не из тела запроса.
-Повторный точный URL того же пользователя возвращает `409 monitor_conflict`,
-даже при другом интервале. URL сохраняется без нормализации регистра, пути или
-порта; разные пользователи могут сохранять одинаковые URL.
-Остальные ошибки используют `{error:{code,message}}`: `400 invalid_request`,
-`401 unauthorized`, `403` Origin/CSRF и `500 internal_error`.
-
-```sh
-curl -i -b /tmp/uptime-cookies.txt \
-  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
-  -d '{"url":"https://example.com","interval_seconds":300}' \
-  http://localhost:8080/api/v1/monitors
-```
-
-Перед запуском обновлённого API примените миграции до `00004_add_monitor_updated_at.sql` включительно командой
-`go run ./cmd/migrate up`. Точки хранятся в PostgreSQL и удаляются вместе с
-пользователем. Создание, ограничения, конкурентные дубликаты и HTTP-контракт
-проверяются существующими Go unit/integration командами; нового инструментария нет.
-План: [MONITOR_ENDPOINT_PLAN.md](../docs/backend/plan/MONITOR_ENDPOINT_PLAN.md).
-
-`GET /api/v1/monitors` возвращает `{ "monitors": [...] }` с теми же полями точек,
-только для текущего пользователя, от новых к старым (при одинаковом времени —
-по ID по убыванию). Пустой список — `[]`. Нужен access token; CSRF-заголовок
-для GET не требуется. Ответы имеют `Cache-Control: no-store`.
-
-Поле `updated_at` обязательно в ответах создания и списка. При создании оно
-равно `created_at`; для записей, существовавших до миграции 00004, оно заполнено
-значением `created_at`. Оба времени возвращаются в UTC.
-
-### Редактирование и удаление мониторов
-
-`PUT /api/v1/monitors/{id}` принимает тот же JSON, что и создание: обязательные
-`url` и `interval_seconds`. Действуют те же ограничения и проверка неизвестных
-полей. Ответ `200` содержит монитор с `id`, `url`, `interval_seconds`,
-`created_at` и `updated_at`. Каждое успешное сохранение обновляет `updated_at`
-временем PostgreSQL, даже при прежних значениях; `created_at` не меняется.
-При одновременном редактировании действует последнее успешное сохранение.
-
-`DELETE /api/v1/monitors/{id}` окончательно удаляет запись и возвращает `204`
-без тела. Пользователь может редактировать и удалять только свои мониторы;
-чужая или отсутствующая запись возвращает `404 monitor_not_found`, включая
-повторное удаление. Неверный UUID или некорректные данные возвращают
-`400 invalid_request`; совпадение URL с другим монитором владельца —
-`409 monitor_conflict`. Ошибки не меняют запись.
-
-Оба метода требуют access-cookie или Bearer token и `X-CSRF-Protection: 1`.
-CORS разрешает GET, POST, PUT и DELETE; PUT и DELETE включены в проверку CSRF.
-Ответы контроллеров имеют `Cache-Control: no-store`. Автоматически повторять
-изменяющие запросы после сетевой ошибки не следует: результат может быть неизвестен.
-
-```sh
-curl -i -X PUT -b /tmp/uptime-cookies.txt \
-  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
-  -d '{"url":"https://edited.example.com","interval_seconds":90}' \
-  http://localhost:8080/api/v1/monitors/00000000-0000-4000-8000-000000000001
-curl -i -X DELETE -b /tmp/uptime-cookies.txt \
-  -H 'X-CSRF-Protection: 1' \
-  http://localhost:8080/api/v1/monitors/00000000-0000-4000-8000-000000000001
-```
-
-Существующие Go-тесты проверяют права владельца, ошибки, неизменность записи при
-отказе, сохранение временных полей и удаление. HTTPS-проверка
-`AUTH_BROWSER_CHECK=1` дополнительно выполняет создание, PUT и DELETE с реальными
-cookie и CORS-preflight, проверяет отказ без CSRF-заголовка и итоговый список.
-План: [MONITOR_EDIT_DELETE_PLAN.md](../docs/backend/plan/MONITOR_EDIT_DELETE_PLAN.md).
+[docs/backend/monitors.md](../docs/backend/monitors.md)
