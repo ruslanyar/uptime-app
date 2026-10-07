@@ -16,7 +16,9 @@ type Service = authcontroller.Service
 func New(service Service, monitors monitorcontroller.Service, cfg config.Config) http.Handler {
 	controller := authcontroller.New(service, cfg)
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/monitors", monitorcontroller.New(service, monitors).Create)
+	monitorController := monitorcontroller.New(service, monitors)
+	mux.HandleFunc("POST /api/v1/monitors", monitorController.Create)
+	mux.HandleFunc("GET /api/v1/monitors", monitorController.List)
 	mux.HandleFunc("POST /api/v1/auth/register", controller.Register)
 	mux.HandleFunc("POST /api/v1/auth/login", controller.Login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", controller.Refresh)

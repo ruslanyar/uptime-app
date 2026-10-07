@@ -41,3 +41,34 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 	)
 	return i, err
 }
+
+const listMonitors = `-- name: ListMonitors :many
+SELECT id, user_id, url, interval_seconds, created_at FROM monitors WHERE user_id = $1
+ORDER BY created_at DESC, id DESC
+`
+
+func (q *Queries) ListMonitors(ctx context.Context, userID pgtype.UUID) ([]Monitor, error) {
+	rows, err := q.db.Query(ctx, listMonitors, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Monitor
+	for rows.Next() {
+		var i Monitor
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Url,
+			&i.IntervalSeconds,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

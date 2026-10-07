@@ -83,3 +83,56 @@ func TestMonitorRoute(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
+
+func TestMonitorListRoute(t *testing.T) {
+	ctx, pool, a, _ := setup(t)
+	first := register(t, ctx, a)
+	second, e := a.Register(ctx, "Other", "other@example.com", "long password here")
+	if e != nil {
+		t.Fatal(e)
+	}
+	s := monitor.NewService(postgres.New(pool))
+	h := httpapi.New(a, s, config.Config{})
+	get := func(token string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "/api/v1/monitors", nil)
+		if token != "" {
+			r.AddCookie(&http.Cookie{Name: "access_token", Value: token})
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	if w := get(""); w.Code != 401 {
+		t.Fatal(w.Code)
+	}
+	if w := get(first.AccessToken); w.Code != 200 || strings.TrimSpace(w.Body.String()) != `{"monitors":[]}` {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	old, e := s.Create(ctx, first.User.ID, "https://old.example", 300)
+	if e != nil {
+		t.Fatal(e)
+	}
+	recent, e := s.Create(ctx, first.User.ID, "https://new.example", 60)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.Create(ctx, second.User.ID, "https://private.example", 300); e != nil {
+		t.Fatal(e)
+	}
+	w := get(first.AccessToken)
+	var payload struct {
+		Monitors []monitor.Monitor `json:"monitors"`
+	}
+	if e = json.Unmarshal(w.Body.Bytes(), &payload); e != nil || w.Code != 200 || len(payload.Monitors) != 2 {
+		t.Fatal(w.Code, w.Body.String(), e)
+	}
+	if payload.Monitors[0].ID != recent.ID || payload.Monitors[1].ID != old.ID || w.Header().Get("Cache-Control") != "no-store" || strings.Contains(w.Body.String(), "user_id") {
+		t.Fatal(w.Body.String())
+	}
+	if _, e = pool.Exec(ctx, "DROP TABLE monitors"); e != nil {
+		t.Fatal(e)
+	}
+	if w = get(first.AccessToken); w.Code != 500 {
+		t.Fatal(w.Code)
+	}
+}

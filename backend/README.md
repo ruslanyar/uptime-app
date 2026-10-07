@@ -367,3 +367,8 @@ curl -i -b /tmp/uptime-cookies.txt \
 пользователем. Создание, ограничения, конкурентные дубликаты и HTTP-контракт
 проверяются существующими Go unit/integration командами; нового инструментария нет.
 План: [MONITOR_ENDPOINT_PLAN.md](../docs/backend/plan/MONITOR_ENDPOINT_PLAN.md).
+
+`GET /api/v1/monitors` возвращает `{ "monitors": [...] }` с теми же полями точек,
+только для текущего пользователя, от новых к старым (при одинаковом времени —
+по ID по убыванию). Пустой список — `[]`. Нужен access token; CSRF-заголовок
+для GET не требуется. Ответы имеют `Cache-Control: no-store`.
