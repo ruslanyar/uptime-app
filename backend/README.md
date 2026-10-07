@@ -280,6 +280,9 @@ export BROWSER_EXECUTABLE=/usr/bin/google-chrome
 # Альтернатива без системного Chrome:
 # node /tmp/uptime-auth-browser/node_modules/playwright/cli.js install chromium
 # unset BROWSER_EXECUTABLE
+# При унаследованном HTTP-прокси исключите локальные тестовые домены:
+export NO_PROXY=localhost,127.0.0.1,.auth-client.test,.auth-service.test
+export no_proxy="$NO_PROXY"
 AUTH_BROWSER_CHECK=1 go test -v ./internal/storage/postgres -run TestBrowserCrossSite -count=1
 ```
 
@@ -376,3 +379,40 @@ curl -i -b /tmp/uptime-cookies.txt \
 Поле `updated_at` обязательно в ответах создания и списка. При создании оно
 равно `created_at`; для записей, существовавших до миграции 00004, оно заполнено
 значением `created_at`. Оба времени возвращаются в UTC.
+
+### Редактирование и удаление мониторов
+
+`PUT /api/v1/monitors/{id}` принимает тот же JSON, что и создание: обязательные
+`url` и `interval_seconds`. Действуют те же ограничения и проверка неизвестных
+полей. Ответ `200` содержит монитор с `id`, `url`, `interval_seconds`,
+`created_at` и `updated_at`. Каждое успешное сохранение обновляет `updated_at`
+временем PostgreSQL, даже при прежних значениях; `created_at` не меняется.
+При одновременном редактировании действует последнее успешное сохранение.
+
+`DELETE /api/v1/monitors/{id}` окончательно удаляет запись и возвращает `204`
+без тела. Пользователь может редактировать и удалять только свои мониторы;
+чужая или отсутствующая запись возвращает `404 monitor_not_found`, включая
+повторное удаление. Неверный UUID или некорректные данные возвращают
+`400 invalid_request`; совпадение URL с другим монитором владельца —
+`409 monitor_conflict`. Ошибки не меняют запись.
+
+Оба метода требуют access-cookie или Bearer token и `X-CSRF-Protection: 1`.
+CORS разрешает GET, POST, PUT и DELETE; PUT и DELETE включены в проверку CSRF.
+Ответы контроллеров имеют `Cache-Control: no-store`. Автоматически повторять
+изменяющие запросы после сетевой ошибки не следует: результат может быть неизвестен.
+
+```sh
+curl -i -X PUT -b /tmp/uptime-cookies.txt \
+  -H 'Content-Type: application/json' -H 'X-CSRF-Protection: 1' \
+  -d '{"url":"https://edited.example.com","interval_seconds":90}' \
+  http://localhost:8080/api/v1/monitors/00000000-0000-4000-8000-000000000001
+curl -i -X DELETE -b /tmp/uptime-cookies.txt \
+  -H 'X-CSRF-Protection: 1' \
+  http://localhost:8080/api/v1/monitors/00000000-0000-4000-8000-000000000001
+```
+
+Существующие Go-тесты проверяют права владельца, ошибки, неизменность записи при
+отказе, сохранение временных полей и удаление. HTTPS-проверка
+`AUTH_BROWSER_CHECK=1` дополнительно выполняет создание, PUT и DELETE с реальными
+cookie и CORS-preflight, проверяет отказ без CSRF-заголовка и итоговый список.
+План: [MONITOR_EDIT_DELETE_PLAN.md](../docs/backend/plan/MONITOR_EDIT_DELETE_PLAN.md).

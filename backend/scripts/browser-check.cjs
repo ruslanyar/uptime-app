@@ -28,6 +28,34 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(registration.status, 201);
     assert.deepEqual(Object.keys(registration.body), ['user']);
     assert.deepEqual(Object.keys(registration.body.user).sort(), ['email', 'id', 'name']);
+    const monitorCall = (method, path = '', body, csrf = true) => page.evaluate(async ({ method, path, body, csrf }) => {
+      const response = await fetch(window.apiBase + '/api/v1/monitors' + path, {
+        method, credentials: 'include', cache: 'no-store',
+        headers: { ...(method !== 'GET' && csrf ? { 'X-CSRF-Protection': '1' } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      return { status: response.status, body: response.status === 204 ? null : await response.json() };
+    }, { method, path, body, csrf });
+    const created = await monitorCall('POST', '', { url: 'https://browser.example', interval_seconds: 300 });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.created_at, created.body.updated_at);
+    const monitorPath = '/' + created.body.id;
+    const input = { url: 'https://edited.browser.example', interval_seconds: 90 };
+    assert.equal((await monitorCall('PUT', monitorPath, input, false)).status, 403);
+    assert.equal((await monitorCall('DELETE', monitorPath, undefined, false)).status, 403);
+    const updated = await monitorCall('PUT', monitorPath, input);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.id, created.body.id);
+    assert.equal(updated.body.url, input.url);
+    assert.equal(updated.body.interval_seconds, input.interval_seconds);
+    assert.equal(updated.body.created_at, created.body.created_at);
+    assert.ok(Date.parse(updated.body.updated_at) > Date.parse(created.body.updated_at));
+    const listed = await monitorCall('GET');
+    assert.equal(listed.status, 200);
+    assert.deepEqual(listed.body.monitors, [updated.body]);
+    assert.equal((await monitorCall('DELETE', monitorPath)).status, 204);
+    assert.equal((await monitorCall('DELETE', monitorPath)).status, 404);
+    assert.deepEqual((await monitorCall('GET')).body.monitors, []);
     const cookies = async () => (await context.cookies(process.env.BROWSER_API_URL + '/api/v1/auth/me')).filter(c => ['access_token', 'refresh_token'].includes(c.name));
     const before = await cookies();
     assert.equal(before.length, 2);
@@ -59,7 +87,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal((await call('me')).status, 200);
     assert.equal((await call('logout')).status, 204);
     assert.equal((await cookies()).length, 0);
-    console.log('PASS: cross-site HTTPS register, login, cookie /me, refresh of both HttpOnly cookies, logout and cookie removal');
+    console.log('PASS: cross-site HTTPS register, login, cookie /me, refresh of both HttpOnly cookies, logout, cookie removal and monitor create/update/delete with CSRF');
   } finally {
     await browser.close();
   }

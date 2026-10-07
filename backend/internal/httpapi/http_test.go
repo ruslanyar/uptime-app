@@ -72,7 +72,7 @@ func TestPreflight(t *testing.T) {
 	for _, tc := range []struct {
 		origin, method, headers string
 		status                  int
-	}{{"http://localhost:3000", "POST", "content-type, X-CSRF-Protection", 204}, {"https://client.example", "GET", "Authorization", 204}, {"null", "POST", "", 403}, {"", "POST", "", 403}, {"https://client.example", "DELETE", "", 403}, {"https://client.example", "POST", "X-Unknown", 403}} {
+	}{{"http://localhost:3000", "POST", "content-type, X-CSRF-Protection", 204}, {"https://client.example", "GET", "Authorization", 204}, {"null", "POST", "", 403}, {"", "POST", "", 403}, {"https://client.example", "DELETE", "X-CSRF-Protection", 204}, {"https://client.example", "PUT", "Content-Type, X-CSRF-Protection", 204}, {"https://client.example", "PATCH", "", 403}, {"https://client.example", "POST", "X-Unknown", 403}} {
 		f := &fakeService{}
 		r := httptest.NewRequest("OPTIONS", "/api/v1/auth/refresh", nil)
 		r.Header.Set("Origin", tc.origin)
@@ -287,6 +287,27 @@ func TestUpdateProfile(t *testing.T) {
 		}
 		if tc.status == 200 && (f.meToken != tc.token || !strings.Contains(w.Body.String(), `"name":"New"`) || len(w.Result().Cookies()) != 0) {
 			t.Fatal(w.Body.String())
+		}
+	}
+}
+
+func TestMonitorMutationProtection(t *testing.T) {
+	for _, method := range []string{"PUT", "DELETE"} {
+		for _, csrf := range [][]string{nil, {"0"}, {"1"}, {"1", "1"}} {
+			calls := 0
+			h := protect(cfg(), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(204) }))
+			r := httptest.NewRequest(method, "/api/v1/monitors/id", nil)
+			r.Header.Set("Origin", "https://client.example")
+			r.Header["X-Csrf-Protection"] = csrf
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, r)
+			if len(csrf) == 1 && csrf[0] == "1" {
+				if w.Code != 204 || calls != 1 {
+					t.Fatal(method, csrf, w.Code, calls)
+				}
+			} else if w.Code != 403 || calls != 0 {
+				t.Fatal(method, csrf, w.Code, calls)
+			}
 		}
 	}
 }

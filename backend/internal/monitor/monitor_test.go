@@ -78,3 +78,66 @@ func TestList(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func (f *fakeStore) UpdateMonitor(_ context.Context, m Monitor) (Monitor, error) {
+	f.calls++
+	f.value = m
+	return m, f.err
+}
+func (f *fakeStore) DeleteMonitor(_ context.Context, owner, id string) error {
+	f.calls++
+	f.value = Monitor{ID: id, UserID: owner}
+	return f.err
+}
+
+func TestUpdate(t *testing.T) {
+	owner, id := auth.NewID(), auth.NewID()
+	for _, tc := range []struct {
+		name, owner, id, url string
+		interval             int32
+		invalid              bool
+	}{
+		{"valid", owner, id, " https://example.com ", 300, false},
+		{"owner", "invalid", id, "https://example.com", 300, true},
+		{"id", owner, "invalid", "https://example.com", 300, true},
+		{"url", owner, id, "bad", 300, true},
+		{"interval", owner, id, "https://example.com", 59, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := &fakeStore{}
+			m, err := NewService(f).Update(context.Background(), tc.owner, tc.id, tc.url, tc.interval)
+			if tc.invalid {
+				if !errors.Is(err, ErrInvalid) || f.calls != 0 {
+					t.Fatal(err, f.calls)
+				}
+				return
+			}
+			if err != nil || f.calls != 1 || m.ID != id || m.UserID != owner || m.URL != "https://example.com" || m.IntervalSeconds != 300 {
+				t.Fatal(m, err, f.calls)
+			}
+		})
+	}
+	for _, want := range []error{ErrNotFound, ErrConflict, errors.New("database unavailable")} {
+		f := &fakeStore{err: want}
+		if _, err := NewService(f).Update(context.Background(), owner, id, "https://example.com", 300); !errors.Is(err, want) {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestDelete(t *testing.T) {
+	owner, id := auth.NewID(), auth.NewID()
+	for _, ids := range [][2]string{{"invalid", id}, {owner, "invalid"}} {
+		f := &fakeStore{}
+		if err := NewService(f).Delete(context.Background(), ids[0], ids[1]); !errors.Is(err, ErrInvalid) || f.calls != 0 {
+			t.Fatal(err, f.calls)
+		}
+	}
+	for _, want := range []error{nil, ErrNotFound, errors.New("database unavailable")} {
+		f := &fakeStore{err: want}
+		err := NewService(f).Delete(context.Background(), owner, id)
+		if !errors.Is(err, want) || f.calls != 1 || f.value.ID != id || f.value.UserID != owner {
+			t.Fatal(err, f)
+		}
+	}
+}

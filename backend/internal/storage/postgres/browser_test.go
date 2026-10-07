@@ -11,6 +11,8 @@ import (
 
 	"uptime-app/backend/internal/config"
 	"uptime-app/backend/internal/httpapi"
+	"uptime-app/backend/internal/monitor"
+	"uptime-app/backend/internal/storage/postgres"
 )
 
 func TestBrowserCrossSite(t *testing.T) {
@@ -18,7 +20,7 @@ func TestBrowserCrossSite(t *testing.T) {
 		t.Skip("set AUTH_BROWSER_CHECK=1 to check browser HTTPS cross-site flow")
 	}
 
-	_, _, service, _ := setup(t)
+	_, pool, service, _ := setup(t)
 	var apiBase string
 	frontend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
@@ -31,7 +33,7 @@ func TestBrowserCrossSite(t *testing.T) {
 	}
 	frontendURL := "https://frontend.auth-client.test:" + frontendPort
 	cfg := config.Config{AllowedOrigins: map[string]bool{frontendURL: true}, CookieSecure: true, CookieSameSite: http.SameSiteNoneMode}
-	api := httptest.NewTLSServer(httpapi.New(service, nil, cfg))
+	api := httptest.NewTLSServer(httpapi.New(service, monitor.NewService(postgres.New(pool)), cfg))
 	defer api.Close()
 	_, apiPort, e := net.SplitHostPort(api.Listener.Addr().String())
 	if e != nil {

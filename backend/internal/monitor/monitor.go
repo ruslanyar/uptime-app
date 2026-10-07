@@ -1,4 +1,4 @@
-// Package monitor creates user-owned monitoring configurations.
+// Package monitor manages user-owned monitoring configurations.
 package monitor
 
 import (
@@ -15,6 +15,7 @@ import (
 
 var ErrInvalid = errors.New("invalid monitor input")
 var ErrConflict = errors.New("monitor already exists")
+var ErrNotFound = errors.New("monitor not found")
 
 type Monitor struct {
 	ID              string    `json:"id"`
@@ -27,6 +28,8 @@ type Monitor struct {
 type Store interface {
 	CreateMonitor(context.Context, Monitor) (Monitor, error)
 	ListMonitors(context.Context, string) ([]Monitor, error)
+	UpdateMonitor(context.Context, Monitor) (Monitor, error)
+	DeleteMonitor(context.Context, string, string) error
 }
 type Service struct{ store Store }
 
@@ -73,4 +76,19 @@ func (s *Service) List(ctx context.Context, userID string) ([]Monitor, error) {
 		return nil, ErrInvalid
 	}
 	return s.store.ListMonitors(ctx, userID)
+}
+
+func (s *Service) Update(ctx context.Context, userID, monitorID, raw string, interval int32) (Monitor, error) {
+	raw, err := Validate(raw, interval)
+	if err != nil || !auth.ValidID(userID) || !auth.ValidID(monitorID) {
+		return Monitor{}, ErrInvalid
+	}
+	return s.store.UpdateMonitor(ctx, Monitor{ID: monitorID, UserID: userID, URL: raw, IntervalSeconds: interval})
+}
+
+func (s *Service) Delete(ctx context.Context, userID, monitorID string) error {
+	if !auth.ValidID(userID) || !auth.ValidID(monitorID) {
+		return ErrInvalid
+	}
+	return s.store.DeleteMonitor(ctx, userID, monitorID)
 }

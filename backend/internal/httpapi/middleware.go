@@ -25,7 +25,7 @@ func protect(cfg config.Config, next http.Handler) http.Handler {
 			w.Header().Add("Vary", "Access-Control-Request-Method")
 			w.Header().Add("Vary", "Access-Control-Request-Headers")
 			method := r.Header.Get("Access-Control-Request-Method")
-			if origin == "" || (method != "GET" && method != "POST") {
+			if origin == "" || (method != "GET" && method != "POST" && method != "PUT" && method != "DELETE") {
 				response.Error(w, 403, "invalid_preflight", "Invalid preflight")
 				return
 			}
@@ -37,12 +37,12 @@ func protect(cfg config.Config, next http.Handler) http.Handler {
 					return
 				}
 			}
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Protection")
 			w.WriteHeader(204)
 			return
 		}
-		if r.Method == http.MethodPost && (len(r.Header.Values("X-CSRF-Protection")) != 1 || r.Header.Get("X-CSRF-Protection") != "1") {
+		if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (len(r.Header.Values("X-CSRF-Protection")) != 1 || r.Header.Get("X-CSRF-Protection") != "1") {
 			response.Error(w, 403, "csrf_required", "X-CSRF-Protection: 1 is required")
 			return
 		}

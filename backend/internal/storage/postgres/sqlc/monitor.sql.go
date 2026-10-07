@@ -43,6 +43,23 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 	return i, err
 }
 
+const deleteMonitor = `-- name: DeleteMonitor :execrows
+DELETE FROM monitors WHERE id = $1 AND user_id = $2
+`
+
+type DeleteMonitorParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) DeleteMonitor(ctx context.Context, arg DeleteMonitorParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteMonitor, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listMonitors = `-- name: ListMonitors :many
 SELECT id, user_id, url, interval_seconds, created_at, updated_at FROM monitors WHERE user_id = $1
 ORDER BY created_at DESC, id DESC
@@ -73,4 +90,37 @@ func (q *Queries) ListMonitors(ctx context.Context, userID pgtype.UUID) ([]Monit
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateMonitor = `-- name: UpdateMonitor :one
+UPDATE monitors
+SET url = $3, interval_seconds = $4, updated_at = now()
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, url, interval_seconds, created_at, updated_at
+`
+
+type UpdateMonitorParams struct {
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	Url             string
+	IntervalSeconds int32
+}
+
+func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (Monitor, error) {
+	row := q.db.QueryRow(ctx, updateMonitor,
+		arg.ID,
+		arg.UserID,
+		arg.Url,
+		arg.IntervalSeconds,
+	)
+	var i Monitor
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Url,
+		&i.IntervalSeconds,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
