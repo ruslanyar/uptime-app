@@ -14,7 +14,7 @@ import (
 const createMonitor = `-- name: CreateMonitor :one
 INSERT INTO monitors (id, user_id, url, interval_seconds)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, url, interval_seconds, created_at
+RETURNING id, user_id, url, interval_seconds, created_at, updated_at
 `
 
 type CreateMonitorParams struct {
@@ -38,12 +38,13 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 		&i.Url,
 		&i.IntervalSeconds,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listMonitors = `-- name: ListMonitors :many
-SELECT id, user_id, url, interval_seconds, created_at FROM monitors WHERE user_id = $1
+SELECT id, user_id, url, interval_seconds, created_at, updated_at FROM monitors WHERE user_id = $1
 ORDER BY created_at DESC, id DESC
 `
 
@@ -62,6 +63,7 @@ func (q *Queries) ListMonitors(ctx context.Context, userID pgtype.UUID) ([]Monit
 			&i.Url,
 			&i.IntervalSeconds,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

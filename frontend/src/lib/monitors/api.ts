@@ -1,7 +1,11 @@
 import { apiOrigin, AuthError } from '@/lib/auth/api';
 import { validateMonitor, type MonitorInput } from './validation';
 
-export type Monitor = MonitorInput & { id: string; created_at: string };
+export type Monitor = MonitorInput & {
+  id: string;
+  created_at: string;
+  updated_at: string;
+};
 
 function monitor(value: unknown): Monitor {
   if (!value || typeof value !== 'object') throw new AuthError('protocol');
@@ -12,6 +16,8 @@ function monitor(value: unknown): Monitor {
     typeof v.interval_seconds !== 'number' ||
     typeof v.created_at !== 'string' ||
     !Number.isFinite(Date.parse(v.created_at)) ||
+    typeof v.updated_at !== 'string' ||
+    !Number.isFinite(Date.parse(v.updated_at)) ||
     !validateMonitor(v.url, String(v.interval_seconds), 'seconds').input
   )
     throw new AuthError('protocol');
@@ -20,6 +26,7 @@ function monitor(value: unknown): Monitor {
     url: v.url,
     interval_seconds: v.interval_seconds,
     created_at: v.created_at,
+    updated_at: v.updated_at,
   };
 }
 

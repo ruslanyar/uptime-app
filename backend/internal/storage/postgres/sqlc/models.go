@@ -14,6 +14,7 @@ type Monitor struct {
 	Url             string
 	IntervalSeconds int32
 	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
 }
 
 type RefreshToken struct {

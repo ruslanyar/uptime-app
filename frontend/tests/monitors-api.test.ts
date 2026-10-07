@@ -8,6 +8,7 @@ const item = {
   url: 'https://example.com',
   interval_seconds: 300,
   created_at: '2026-10-07T10:00:00Z',
+  updated_at: '2026-10-07T10:00:00Z',
 };
 it.each([
   ['60', 'seconds', 60],
@@ -103,9 +104,24 @@ it.each([
   { monitors: [null] },
   { monitors: [{ ...item, interval_seconds: 59 }] },
   { monitors: [{ ...item, created_at: 'invalid' }] },
+  { monitors: [{ ...item, updated_at: undefined }] },
+  { monitors: [{ ...item, updated_at: null }] },
+  { monitors: [{ ...item, updated_at: 'invalid' }] },
 ])('rejects malformed lists', async (body) => {
   const request = vi.fn().mockResolvedValue(new Response(JSON.stringify(body)));
   await expect(
     new MonitorAPI(() => 'https://api.example.com', request).list(),
   ).rejects.toMatchObject({ kind: 'protocol' });
+});
+
+it('rejects a creation response without a valid updated_at', async () => {
+  const request = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(JSON.stringify({ ...item, updated_at: 'invalid' })),
+    );
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).create(item),
+  ).rejects.toMatchObject({ kind: 'protocol' });
+  expect(request).toHaveBeenCalledTimes(1);
 });

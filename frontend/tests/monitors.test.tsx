@@ -31,6 +31,7 @@ const item = {
   url: 'https://example.com',
   interval_seconds: 300,
   created_at: '2026-10-07T10:00:00Z',
+  updated_at: '2026-10-07T10:00:00Z',
 };
 beforeEach(() => {
   list.mockReset().mockResolvedValue([]);

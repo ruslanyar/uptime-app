@@ -17,7 +17,7 @@ func (s *Store) CreateMonitor(ctx context.Context, m monitor.Monitor) (monitor.M
 		}
 		return monitor.Monitor{}, e
 	}
-	return monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC()}, nil
+	return monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}, nil
 }
 
 func (s *Store) ListMonitors(ctx context.Context, userID string) ([]monitor.Monitor, error) {
@@ -27,7 +27,7 @@ func (s *Store) ListMonitors(ctx context.Context, userID string) ([]monitor.Moni
 	}
 	result := make([]monitor.Monitor, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC()})
+		result = append(result, monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()})
 	}
 	return result, nil
 }

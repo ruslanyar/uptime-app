@@ -22,6 +22,7 @@ type Monitor struct {
 	URL             string    `json:"url"`
 	IntervalSeconds int32     `json:"interval_seconds"`
 	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 type Store interface {
 	CreateMonitor(context.Context, Monitor) (Monitor, error)

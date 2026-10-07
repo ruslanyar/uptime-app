@@ -15,7 +15,7 @@ func TestMonitorPersistence(t *testing.T) {
 	u := register(t, ctx, a)
 	s := monitor.NewService(postgres.New(pool))
 	m, e := s.Create(ctx, u.User.ID, " https://example.com/path?q=1 ", 60)
-	if e != nil || m.CreatedAt.IsZero() || !auth.ValidID(m.ID) || m.UserID != u.User.ID {
+	if e != nil || m.CreatedAt.IsZero() || !m.UpdatedAt.Equal(m.CreatedAt) || !auth.ValidID(m.ID) || m.UserID != u.User.ID {
 		t.Fatal(m, e)
 	}
 	var owner, url string

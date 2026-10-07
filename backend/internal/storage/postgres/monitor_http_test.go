@@ -36,12 +36,12 @@ func TestMonitorRoute(t *testing.T) {
 	body := `{"url":"https://example.com","interval_seconds":300}`
 	w := post(u.AccessToken, "1", "http://localhost:3000", body, nil)
 	var m monitor.Monitor
-	if e := json.Unmarshal(w.Body.Bytes(), &m); e != nil || w.Code != 201 || m.CreatedAt.IsZero() {
+	if e := json.Unmarshal(w.Body.Bytes(), &m); e != nil || w.Code != 201 || m.CreatedAt.IsZero() || !m.UpdatedAt.Equal(m.CreatedAt) {
 		t.Fatal(w.Code, w.Body.String(), e)
 	}
 	var fields map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &fields)
-	if len(fields) != 4 {
+	if len(fields) != 5 {
 		t.Fatal(fields)
 	}
 	if w = post(u.AccessToken, "1", "", body, nil); w.Code != 409 || !strings.Contains(w.Body.String(), "monitor_conflict") {
@@ -126,7 +126,7 @@ func TestMonitorListRoute(t *testing.T) {
 	if e = json.Unmarshal(w.Body.Bytes(), &payload); e != nil || w.Code != 200 || len(payload.Monitors) != 2 {
 		t.Fatal(w.Code, w.Body.String(), e)
 	}
-	if payload.Monitors[0].ID != recent.ID || payload.Monitors[1].ID != old.ID || w.Header().Get("Cache-Control") != "no-store" || strings.Contains(w.Body.String(), "user_id") {
+	if payload.Monitors[0].ID != recent.ID || !payload.Monitors[0].UpdatedAt.Equal(recent.UpdatedAt) || !payload.Monitors[1].UpdatedAt.Equal(old.UpdatedAt) || payload.Monitors[1].ID != old.ID || w.Header().Get("Cache-Control") != "no-store" || strings.Contains(w.Body.String(), "user_id") {
 		t.Fatal(w.Body.String())
 	}
 	if _, e = pool.Exec(ctx, "DROP TABLE monitors"); e != nil {
