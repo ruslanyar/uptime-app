@@ -16,6 +16,7 @@ type AuthService interface {
 }
 type Service interface {
 	Create(context.Context, string, string, int32) (monitor.Monitor, error)
+	List(context.Context, string) ([]monitor.Monitor, error)
 }
 type Controller struct {
 	auth    AuthService
@@ -63,4 +64,29 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusCreated, m)
+}
+
+func (c *Controller) List(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	raw, e := request.AccessToken(r)
+	if e != nil {
+		failure(w, e)
+		return
+	}
+	u, e := c.auth.Me(r.Context(), raw)
+	if e != nil {
+		failure(w, e)
+		return
+	}
+	items, e := c.service.List(r.Context(), u.ID)
+	if e != nil {
+		failure(w, e)
+		return
+	}
+	if items == nil {
+		items = []monitor.Monitor{}
+	}
+	response.JSON(w, http.StatusOK, struct {
+		Monitors []monitor.Monitor `json:"monitors"`
+	}{items})
 }

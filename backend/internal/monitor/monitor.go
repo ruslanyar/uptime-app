@@ -25,6 +25,7 @@ type Monitor struct {
 }
 type Store interface {
 	CreateMonitor(context.Context, Monitor) (Monitor, error)
+	ListMonitors(context.Context, string) ([]Monitor, error)
 }
 type Service struct{ store Store }
 
@@ -64,4 +65,11 @@ func (s *Service) Create(ctx context.Context, userID, raw string, interval int32
 		return Monitor{}, ErrInvalid
 	}
 	return s.store.CreateMonitor(ctx, Monitor{ID: auth.NewID(), UserID: userID, URL: raw, IntervalSeconds: interval})
+}
+
+func (s *Service) List(ctx context.Context, userID string) ([]Monitor, error) {
+	if !auth.ValidID(userID) {
+		return nil, ErrInvalid
+	}
+	return s.store.ListMonitors(ctx, userID)
 }

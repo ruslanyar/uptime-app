@@ -58,3 +58,23 @@ func TestCreate(t *testing.T) {
 		}
 	}
 }
+
+func (f *fakeStore) ListMonitors(_ context.Context, owner string) ([]Monitor, error) {
+	return []Monitor{{UserID: owner}}, f.err
+}
+func TestList(t *testing.T) {
+	f := &fakeStore{}
+	s := NewService(f)
+	owner := auth.NewID()
+	items, e := s.List(context.Background(), owner)
+	if e != nil || len(items) != 1 || items[0].UserID != owner {
+		t.Fatal(items, e)
+	}
+	if _, e = s.List(context.Background(), "invalid"); !errors.Is(e, ErrInvalid) {
+		t.Fatal(e)
+	}
+	f.err = errors.New("database unavailable")
+	if _, e = s.List(context.Background(), owner); !errors.Is(e, f.err) {
+		t.Fatal(e)
+	}
+}

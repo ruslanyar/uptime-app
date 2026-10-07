@@ -93,3 +93,30 @@ func TestCreateHTTP(t *testing.T) {
 		}
 	}
 }
+
+func (f *fakeMonitor) List(_ context.Context, owner string) ([]monitor.Monitor, error) {
+	f.calls++
+	f.owner = owner
+	return nil, f.err
+}
+func TestListHTTP(t *testing.T) {
+	for _, tc := range []struct {
+		token  string
+		err    error
+		status int
+	}{{"", nil, 401}, {"access", nil, 200}, {"access", errors.New("database unavailable"), 500}} {
+		m := &fakeMonitor{err: tc.err}
+		r := httptest.NewRequest("GET", "/api/v1/monitors", nil)
+		if tc.token != "" {
+			r.Header.Set("Authorization", "Bearer "+tc.token)
+		}
+		w := httptest.NewRecorder()
+		New(&fakeAuth{}, m).List(w, r)
+		if w.Code != tc.status || w.Header().Get("Cache-Control") != "no-store" {
+			t.Fatal(w.Code, w.Body.String())
+		}
+		if tc.status == 200 && (strings.TrimSpace(w.Body.String()) != `{"monitors":[]}` || m.owner != "owner") {
+			t.Fatal(w.Body.String(), m.owner)
+		}
+	}
+}
