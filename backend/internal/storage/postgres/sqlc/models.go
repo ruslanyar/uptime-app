@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Monitor struct {
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	Url             string
+	IntervalSeconds int32
+	CreatedAt       pgtype.Timestamptz
+}
+
 type RefreshToken struct {
 	Hash      []byte
 	SessionID pgtype.UUID

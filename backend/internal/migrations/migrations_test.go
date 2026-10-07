@@ -24,15 +24,19 @@ func TestMigrations(t *testing.T) {
 		if e != nil {
 			t.Fatal(operation, e)
 		}
-		want := int32(2)
+		want := int32(3)
 		if operation == "down" {
-			want = 1
+			want = 2
 		}
 		if i == 0 {
 			want = 0
 		}
-		if s.Current != want || s.Target != 2 {
+		if s.Current != want || s.Target != 3 {
 			t.Fatal(operation, s)
+		}
+		var exists bool
+		if e = pool.QueryRow(ctx, "SELECT to_regclass('public.monitors') IS NOT NULL").Scan(&exists); e != nil || exists != (want >= 3) {
+			t.Fatal(operation, "monitors table", exists, e)
 		}
 	}
 	if _, e = pool.Exec(ctx, "INSERT INTO users(id,name,email,password_hash) VALUES ('00000000-0000-4000-8000-000000000001','Name','u@x.com','hash')"); e != nil {
@@ -46,32 +50,36 @@ func TestMigrations(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	extended := fstest.MapFS{"00002_add_user_avatar.sql": &fstest.MapFile{Data: avatar}, "00001_create_auth_tables.sql": &fstest.MapFile{Data: initial}, "00003_add_column.sql": &fstest.MapFile{Data: []byte("ALTER TABLE users ADD COLUMN note text;\n---- create above / drop below ----\nALTER TABLE users DROP COLUMN note;")}}
+	monitors, e := os.ReadFile("../../migrations/00003_create_monitors.sql")
+	if e != nil {
+		t.Fatal(e)
+	}
+	extended := fstest.MapFS{"00002_add_user_avatar.sql": &fstest.MapFile{Data: avatar}, "00001_create_auth_tables.sql": &fstest.MapFile{Data: initial}, "00003_create_monitors.sql": &fstest.MapFile{Data: monitors}, "00004_add_column.sql": &fstest.MapFile{Data: []byte("ALTER TABLE users ADD COLUMN note text;\n---- create above / drop below ----\nALTER TABLE users DROP COLUMN note;")}}
 	s, e := migrations.Run(ctx, conn, extended, "up")
-	if e != nil || s.Current != 3 {
+	if e != nil || s.Current != 4 {
 		t.Fatal(s, e)
 	}
 	var name string
 	if e = pool.QueryRow(ctx, "SELECT name FROM users").Scan(&name); e != nil || name != "Name" {
 		t.Fatal(name, e)
 	}
-	extended["00004_failure.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE rolled_back(id int); SELECT 1/0;\n---- create above / drop below ----\nDROP TABLE rolled_back;")}
+	extended["00005_failure.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE rolled_back(id int); SELECT 1/0;\n---- create above / drop below ----\nDROP TABLE rolled_back;")}
 	if _, e = migrations.Run(ctx, conn, extended, "up"); e == nil {
 		t.Fatal("bad migration passed")
 	}
 	s, e = migrations.Run(ctx, conn, extended, "status")
-	if e != nil || s.Current != 3 {
+	if e != nil || s.Current != 4 {
 		t.Fatal(s, e)
 	}
 	var exists bool
 	if e = pool.QueryRow(ctx, "SELECT to_regclass('public.rolled_back') IS NOT NULL").Scan(&exists); e != nil || exists {
 		t.Fatal("failed migration persisted", e)
 	}
-	delete(extended, "00004_failure.sql")
-	if s, e = migrations.Run(ctx, conn, extended, "down"); e != nil || s.Current != 2 {
+	delete(extended, "00005_failure.sql")
+	if s, e = migrations.Run(ctx, conn, extended, "down"); e != nil || s.Current != 3 {
 		t.Fatal(s, e)
 	}
-	if s, e = migrations.Run(ctx, conn, extended, "up"); e != nil || s.Current != 3 {
+	if s, e = migrations.Run(ctx, conn, extended, "up"); e != nil || s.Current != 4 {
 		t.Fatal(s, e)
 	}
 }
