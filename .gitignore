@@ -10,7 +10,7 @@ npm-debug.log*
 !.env.development
 !.env.test
 
-/docs/tasks
+/docs/tmp
 
 # Uploaded profile images
 /backend/uploads/

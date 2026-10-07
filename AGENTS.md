@@ -8,7 +8,7 @@
 
 ## Validation & Documentation
 
-Save implementation plans to files only when they were developed with the user in Plan mode. Do not create plan files for work performed in Default mode. When saving a plan, use `docs/backend/plan/` or `docs/frontend/plan/`, according to the project it concerns.
+Save implementation plans to files only when they were developed with the user in Plan mode. Do not create plan files for work performed in Default mode. When saving a plan, use `docs/tmp/plans/`.
 
 Plans are task documents for defining work and tracking completion, not project documentation. Do not link to plans from READMEs or documentation indexes. Before completing a task, record all lasting setup instructions, contracts, and decisions in the main documentation so completed plans can be removed without losing necessary project information.
 
