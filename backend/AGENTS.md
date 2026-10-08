@@ -12,7 +12,7 @@
 - `scripts/`: reproducible SQL generation and browser contract checks.
 - `go.mod`: pinned dependencies and required Go version.
 
-Project documentation is in [../docs/backend/](../docs/backend/).
+Project documentation: [backend rules](../docs/rules/backend/), [backend guides](../docs/guides/backend/), and the [documentation index](../docs/README.md).
 
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 

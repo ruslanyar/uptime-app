@@ -19,7 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `public/`: static assets.
 - `next.config.ts`, `tsconfig.json`, and `eslint.config.mjs`: framework, TypeScript, and lint configuration.
 
-Project documentation is in [../docs/frontend/](../docs/frontend/).
+Project documentation is in [README.md](README.md); shared guides and rules are in the [documentation index](../docs/README.md).
 
 Shared contribution and security rules are in [../AGENTS.md](../AGENTS.md).
 

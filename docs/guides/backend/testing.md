@@ -29,7 +29,7 @@ docker compose --profile test stop postgres-test
 
 ## Полная проверка backend
 
-Основные команды — в [README backend](../../backend/README.md#проверки).
+Основные команды — в [README backend](../../../backend/README.md#проверки).
 Для установки закреплённой версии sqlc см. [миграции и SQL](migrations.md).
 Дополнительно, с запущенной тестовой PostgreSQL, проверьте гонки:
 

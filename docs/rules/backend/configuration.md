@@ -1,9 +1,9 @@
 # Конфигурация
 
-Переменные и примеры значений — в [`.env.example`](../../backend/.env.example).
+Переменные и примеры значений — в [`.env.example`](../../../backend/.env.example).
 Значения по умолчанию и валидация — в
-[`config.go`](../../backend/internal/config/config.go);
-порядок загрузки — в [`environment.go`](../../backend/internal/config/environment.go).
+[`config.go`](../../../backend/internal/config/config.go);
+порядок загрузки — в [`environment.go`](../../../backend/internal/config/environment.go).
 
 ## Окружение
 

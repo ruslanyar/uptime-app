@@ -11,7 +11,7 @@
 
 ## Структура
 
-[docs/backend/architecture.md](../docs/backend/architecture.md)
+[docs/rules/backend/architecture.md](../docs/rules/backend/architecture.md)
 
 ## Локальный запуск
 
@@ -28,11 +28,11 @@ API не применяет миграции автоматически. Тре�
 
 ## Конфигурация
 
-[docs/backend/configuration.md](../docs/backend/configuration.md)
+[docs/rules/backend/configuration.md](../docs/rules/backend/configuration.md)
 
 ## Миграции и SQL
 
-[docs/backend/migrations.md](../docs/backend/migrations.md)
+[docs/guides/backend/migrations.md](../docs/guides/backend/migrations.md)
 
 ## HTTP-контракт
 
@@ -56,8 +56,8 @@ API не применяет миграции автоматически. Тре�
 `Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`.
 Ответы контроллеров авторизации, профиля и мониторов имеют `Cache-Control: no-store`.
 Токены в JSON не возвращаются; параметры cookies описаны в
-[авторизации](../docs/backend/authentication.md), кеширование изображений —
-в [профиле и аватарах](../docs/backend/profile.md).
+[авторизации](../docs/rules/backend/authentication.md), кеширование изображений —
+в [профиле и аватарах](../docs/rules/backend/profile.md).
 
 Маршруты, требующие access token, принимают JWT из access-cookie или
 `Authorization: Bearer <JWT>`; присутствующий `Authorization` имеет приоритет.
@@ -83,7 +83,7 @@ Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и �
 
 ## Авторизация
 
-[docs/backend/authentication.md](../docs/backend/authentication.md)
+[docs/rules/backend/authentication.md](../docs/rules/backend/authentication.md)
 
 ## Проверки
 
@@ -97,15 +97,15 @@ go vet ./...
 go build -o bin/api ./cmd/api
 ```
 
-Подготовка sqlc — в [миграциях и SQL](../docs/backend/migrations.md).
+Подготовка sqlc — в [миграциях и SQL](../docs/guides/backend/migrations.md).
 Интеграционные тесты должны выполняться без пропусков; браузерный сценарий
 запускается отдельно. Подробности, дополнительные проверки и остановка БД —
-в [docs/backend/testing.md](../docs/backend/testing.md).
+в [docs/guides/backend/testing.md](../docs/guides/backend/testing.md).
 
 ## Профиль и аватары
 
-[docs/backend/profile.md](../docs/backend/profile.md)
+[docs/rules/backend/profile.md](../docs/rules/backend/profile.md)
 
 ## Мониторы
 
-[docs/backend/monitors.md](../docs/backend/monitors.md)
+[docs/rules/backend/monitors.md](../docs/rules/backend/monitors.md)

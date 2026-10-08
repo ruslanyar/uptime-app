@@ -10,7 +10,8 @@ npm-debug.log*
 !.env.development
 !.env.test
 
-/docs/tmp
+# Local task files and implementation plans
+/docs/tmp/
 
 # Uploaded profile images
 /backend/uploads/

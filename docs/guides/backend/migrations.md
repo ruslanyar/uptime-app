@@ -19,7 +19,7 @@ go run ./cmd/migrate down    # откат одной миграции; толь�
 - Схему для sqlc берите из SQL применения в `migrations`;
   не создавайте отдельный `schema.sql`.
 
-Установите sqlc версии из [`.sqlc-version`](../../backend/.sqlc-version):
+Установите sqlc версии из [`.sqlc-version`](../../../backend/.sqlc-version):
 
 ```sh
 go install "github.com/sqlc-dev/sqlc/cmd/sqlc@v$(cat .sqlc-version)"

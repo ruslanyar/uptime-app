@@ -8,6 +8,6 @@
 - Проверку, хранение и выдачу файлов меняйте в `internal/avatar`.
 - SQL меняйте в `internal/storage/postgres/queries`, схему — новыми файлами
   в `migrations`. Не редактируйте `internal/storage/postgres/sqlc` вручную;
-  см. [миграции и генерацию](migrations.md).
+  см. [миграции и генерацию](../../guides/backend/migrations.md).
 - Для PostgreSQL-тестов используйте `internal/testdb`, не development-базу;
-  см. [проверки](testing.md).
+  см. [проверки](../../guides/backend/testing.md).
