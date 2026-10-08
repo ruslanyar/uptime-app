@@ -20,6 +20,7 @@ const { auth, redirect } = vi.hoisted(() => ({
       mutate: ReturnType<typeof vi.fn>;
     };
   },
+  // Match Next's control flow: redirect terminates rendering rather than returning.
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`);
   }),

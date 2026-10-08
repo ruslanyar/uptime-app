@@ -8,6 +8,7 @@ test('blocking third-party cookies detects an unsaved session', async ({
 }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
+  // Disable cookie exemptions so browser heuristics cannot turn a blocked login into success.
   await cdp.send('Network.setCookieControls', {
     enableThirdPartyCookieRestriction: true,
     disableThirdPartyCookieMetadata: true,

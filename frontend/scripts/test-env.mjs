@@ -10,7 +10,10 @@ const { loadEnvConfig } = createRequire(`${process.cwd()}/package.json`)(
 );
 loadEnvConfig(process.cwd());
 
-/** @returns {NodeJS.ProcessEnv} */
+/**
+ * Process values (including loaded frontend env) override backend test files; APP_ENV stays test.
+ * @returns {NodeJS.ProcessEnv}
+ */
 export function backendTestEnv() {
   const defaults = parseEnv(
     readFileSync(resolve('../backend/.env.test'), 'utf8'),

@@ -68,6 +68,7 @@ test('creates monitors in all units, persists them and rejects duplicates', asyn
     });
   }
   let finish!: () => void;
+  // Hold the request until pending-state assertions complete, regardless of server speed.
   const gate = new Promise<void>((resolve) => {
     finish = resolve;
   });
@@ -457,7 +458,7 @@ test('retains deletion confirmation after errors and reconciles a missing monito
       return;
     }
     deletes++;
-    // Commit the deletion but lose its response, leaving the UI uncertain.
+    // A committed deletion with a lost response requires reconciliation with real server state.
     const target = new URL(route.request().url());
     // Node's request client does not use Chromium's test-domain resolver.
     target.hostname = '127.0.0.1';

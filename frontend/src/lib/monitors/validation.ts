@@ -16,6 +16,7 @@ export function validateMonitor(
   const url = rawURL.trim();
   try {
     const parsed = new URL(url);
+    // URL normalizes some invalid input away; the API rejects its original spelling.
     const authority = url.match(/^https?:\/\/([^/?#]*)/i)?.[1];
     if (
       !['http:', 'https:'].includes(parsed.protocol) ||
@@ -34,6 +35,7 @@ export function validateMonitor(
     errors.url =
       'Введите полный URL с http:// или https:// без логина и фрагмента.';
   }
+  // Rounding would silently change the requested polling interval.
   const seconds = Number(amount) * multipliers[unit];
   if (
     amount.trim() === '' ||

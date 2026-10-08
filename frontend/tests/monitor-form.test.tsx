@@ -53,6 +53,7 @@ it.each([
     fireEvent.change(screen.getByLabelText('Интервал опроса'), {
       target: { value },
     });
+    // Submit events bypass disabled buttons, so the handler's duplicate guard must hold too.
     fireEvent.submit(screen.getByRole('form', { name: 'Новый сайт' }));
     fireEvent.submit(screen.getByRole('form', { name: 'Новый сайт' }));
     expect(create).toHaveBeenCalledExactlyOnceWith({

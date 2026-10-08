@@ -21,9 +21,11 @@ export function AuthForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
+  // Block duplicate POSTs before React applies the disabled state.
   const submitting = useRef(false);
   const [show, setShow] = useState(false);
   if (auth.status === 'authenticated') redirect('/');
+  // Unmounting during login would discard the uncontrolled fields on failure.
   if (auth.status === 'loading' && !pending) return <SessionStatus />;
   const formError =
     auth.error instanceof AuthError &&

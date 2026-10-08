@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { ESLint } from 'eslint';
 
 const rule = 'better-tailwindcss/enforce-canonical-classes';
+// A TSX path makes lintText apply the same project overrides as real components.
 const filePath = 'src/canonical-probe.tsx';
 const examples = [
   {

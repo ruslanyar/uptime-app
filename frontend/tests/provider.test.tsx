@@ -30,6 +30,7 @@ it('reconnects in Strict Mode and removes browser listeners on unmount', async (
     </StrictMode>,
   );
   await waitFor(() => expect(view.getByText('authenticated')).toBeVisible());
+  // Strict Mode replays effect setup/cleanup while keeping the same Session instance.
   expect(open).toHaveBeenCalledTimes(2);
   expect(close).toHaveBeenCalledTimes(1);
   expect(call).toHaveBeenCalledTimes(1);

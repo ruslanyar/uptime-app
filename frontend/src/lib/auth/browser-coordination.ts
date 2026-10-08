@@ -1,6 +1,8 @@
 import { AuthError } from './api';
 import type { Coordination, SessionEvent } from './session';
 
+// Share only events and a failure flag; users and tokens must stay out of browser storage.
+/** Unavailable coordination APIs or storage produce AuthError('unsupported'). */
 export class BrowserCoordination implements Coordination {
   private channel?: BroadcastChannel;
   open(receive: (event: SessionEvent) => void) {
@@ -13,7 +15,7 @@ export class BrowserCoordination implements Coordination {
         receive(data);
     };
   }
-  // Only a non-secret failure flag is shared; no users or tokens enter storage.
+  /** Uncertainty survives reloads and is shared across tabs on this origin. */
   isUncertain = () => {
     try {
       return localStorage.getItem('uptime-auth-uncertain') === '1';
@@ -33,6 +35,7 @@ export class BrowserCoordination implements Coordination {
     this.channel?.close();
     this.channel = undefined;
   }
+  /** Serializes tabs on this origin; rejects if unsupported or the task fails. */
   lock = async <T>(task: () => Promise<T>): Promise<T> => {
     if (!navigator.locks || typeof BroadcastChannel === 'undefined')
       return Promise.reject(new AuthError('unsupported'));

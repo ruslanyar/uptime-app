@@ -113,7 +113,8 @@ test('simultaneous tabs restore expired access with one refresh and synchronize 
   context.on('request', (request) => {
     if (request.url().endsWith('/refresh')) refreshes++;
   });
-  // Fixture manipulation happens in Node, never in the application or browser JS.
+  // A correctly signed expired fixture exercises expiry without waiting for the token TTL.
+  // Decoding stays in the Node runner; application code must treat tokens as opaque.
   const access = original.find((cookie) => cookie.name === 'access_token')!;
   const [header, encoded] = access.value.split('.');
   const claims = JSON.parse(Buffer.from(encoded, 'base64url').toString());
@@ -411,6 +412,7 @@ test('menu logout exposes pending state and keeps failures visible', async ({
 }, info) => {
   await register(page);
   let finish!: () => void;
+  // Hold the response until pending-state assertions complete, regardless of server speed.
   const gate = new Promise<void>((resolve) => {
     finish = resolve;
   });
@@ -521,7 +523,7 @@ test('avatar selection, drop, replacement and persistence', async ({
   ).toBeVisible();
   await page.bringToFront();
   await page.getByRole('button', { name: 'Редактировать профиль' }).click();
-  // Generate real, decodable raster images in the browser.
+  // The API fully decodes uploads; a MIME label or image header alone is not a valid fixture.
   const image = async (format: string, color: string) =>
     page.evaluate(
       ({ format, color }) => {

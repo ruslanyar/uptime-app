@@ -30,6 +30,7 @@ function monitor(value: unknown): Monitor {
   };
 }
 
+/** Requests reject with AuthError; network/protocol failure can follow a committed write. */
 export class MonitorAPI {
   constructor(
     private origin: () => string = () =>
@@ -100,6 +101,7 @@ export class MonitorAPI {
     );
   }
 
+  /** Fetch cancellation becomes AuthError('network'); body-read failures become 'protocol'. */
   async list(signal?: AbortSignal): Promise<Monitor[]> {
     const value = await this.call(undefined, signal);
     if (

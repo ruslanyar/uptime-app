@@ -30,6 +30,7 @@ export function AvatarField({
     reader.onload = () => setPreview(String(reader.result));
     reader.readAsDataURL(file);
     return () => {
+      // A previous file's read must not replace the preview after selection changes.
       reader.onload = null;
       reader.abort();
     };
@@ -137,6 +138,7 @@ export function AvatarField({
           className="sr-only"
           onChange={(event) => {
             if (event.target.files) select(event.target.files);
+            // Allow selecting the same file again after canceling or correcting an error.
             event.target.value = '';
           }}
         />

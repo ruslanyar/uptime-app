@@ -24,9 +24,9 @@ export function Account({ redirectOnly = false }: { redirectOnly?: boolean }) {
   const [nameError, setNameError] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  // State updates cannot block a second submit before React renders again.
   const submitting = useRef(false);
-  // Session clears its user while a mutation runs; retain this screen's user
-  // while saving a profile or logging out, and when showing a request error.
+  // Session clears its user during mutations; keep the form mounted to preserve its draft.
   const [retainedUser, setRetainedUser] = useState<User>();
   const user =
     auth.user ?? (pending || saving || message ? retainedUser : undefined);

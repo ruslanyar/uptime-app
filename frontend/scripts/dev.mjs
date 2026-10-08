@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 
+// Local builds need development settings, while Next's build process must use production mode.
 process.env.NODE_ENV = 'development';
 const { loadEnvConfig } = createRequire(`${process.cwd()}/package.json`)(
   '@next/env',

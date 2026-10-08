@@ -1,4 +1,4 @@
-// Real Go API + disposable PostgreSQL database + two independent browser origins.
+// Disposable data prevents real-API tests from modifying development accounts and avatars.
 import { backendTestEnv } from './test-env.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -90,6 +90,7 @@ async function close(code = 0) {
             done();
             return;
           }
+          // A stuck server must not prevent database and container cleanup.
           const timeout = setTimeout(() => child.kill('SIGKILL'), 4000);
           timeout.unref();
           child.once('exit', () => {
@@ -100,7 +101,7 @@ async function close(code = 0) {
         }),
     ),
   );
-  // Each cleanup step must run even if the preceding one failed.
+  // A failed database drop must not leave the container or temporary certificates behind.
   const cleanup = async (task) => {
     try {
       await task();
@@ -135,6 +136,7 @@ async function close(code = 0) {
 process.on('SIGTERM', () => void close());
 process.on('SIGINT', () => void close());
 try {
+  // Compose may create the container even if startup fails; cleanup must still attempt removal.
   postgresRequested = true;
   await command(
     'docker',
@@ -185,6 +187,7 @@ try {
       COOKIE_SAME_SITE: 'none',
     },
   });
+  // Distinct HTTPS sites exercise third-party cookies; different localhost ports cannot.
   await command(
     'openssl',
     [
@@ -253,6 +256,7 @@ try {
       });
       request.pipe(upstream);
     });
+    // Next dev uses WebSockets; ordinary HTTP forwarding cannot handle their upgrade.
     server.on('upgrade', (request, socket, head) => {
       const upstream = net.connect(target, '127.0.0.1', () => {
         const headers = Object.entries(request.headers)
@@ -272,7 +276,7 @@ try {
     server.listen(port, '127.0.0.1');
     servers.push(server);
   }
-  // Readiness checks both Next instances and APIs; this endpoint never serves app data.
+  // Playwright needs all four processes ready; one listening server does not prove that.
   const ready = http.createServer(async (_request, response) => {
     try {
       for (const [port, path, status] of [

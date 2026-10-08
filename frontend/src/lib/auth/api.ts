@@ -23,6 +23,7 @@ export class AuthError extends Error {
   }
 }
 
+/** Throws AuthError('config') unless value is an exact HTTP(S) origin. */
 export function apiOrigin(value: string | undefined): string {
   try {
     const url = new URL(value ?? '');
@@ -73,6 +74,7 @@ export class AuthAPI {
       apiOrigin(process.env.NEXT_PUBLIC_API_URL),
     private request: typeof fetch = (...args) => fetch(...args),
   ) {}
+  /** Logout returns no user; network/protocol errors can follow a committed mutation. */
   async call(
     path: 'me' | 'register' | 'login' | 'refresh' | 'logout' | 'profile',
     body?: Credentials | Profile,
@@ -95,6 +97,7 @@ export class AuthAPI {
             ? {}
             : {
                 'X-CSRF-Protection': '1',
+                // The browser must supply the multipart boundary for FormData.
                 ...(typeof payload === 'string'
                   ? { 'Content-Type': 'application/json' }
                   : {}),

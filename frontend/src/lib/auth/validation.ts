@@ -1,6 +1,7 @@
 import type { Credentials } from './api';
 
 export type FieldErrors = Partial<Record<keyof Credentials, string>>;
+/** Returns normalized values even on validation failure; preserves password whitespace. */
 export function validate(
   values: Credentials,
   register: boolean,
@@ -11,6 +12,7 @@ export function validate(
     ...(register ? { name: values.name?.trim() ?? '' } : {}),
   };
   const errors: FieldErrors = {};
+  // Match backend limits: Unicode code points for name/password, UTF-8 bytes for email.
   if (
     register &&
     (Array.from(normalized.name ?? '').length < 2 ||

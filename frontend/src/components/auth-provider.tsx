@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     void session.check();
     const focus = () => {
+      // Cookies may have changed while this tab was inactive, even if it missed a broadcast.
       if (document.visibilityState === 'visible') void session.check();
     };
     window.addEventListener('focus', focus);

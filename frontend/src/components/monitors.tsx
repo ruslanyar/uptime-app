@@ -22,6 +22,7 @@ import {
 } from '@/lib/monitors/api';
 import { formatInterval, type MonitorInput } from '@/lib/monitors/validation';
 
+/** Remount when userID changes to discard the previous user's list and editor. */
 export function Monitors({
   userID,
   onRequestState,
@@ -52,15 +53,18 @@ export function Monitors({
 
   useEffect(() => {
     if (pending || state.loading) return;
+    // Destructive confirmation starts on cancel to avoid accidental keyboard deletion.
     if (editor?.mode === 'delete') cancelDelete.current?.focus();
     else if (!editor && trigger.current) {
       if (trigger.current.isConnected) trigger.current.focus();
+      // Deleting a row also removes the button that opened its confirmation.
       else addButton.current?.focus();
     }
   }, [editor, pending, state.loading]);
 
   useEffect(() => {
     const controller = new AbortController();
+    // Abort alone cannot prevent an already resolved request from updating a stale screen.
     let active = true;
     async function load() {
       try {
@@ -70,6 +74,7 @@ export function Monitors({
         } catch (error) {
           if (!(error instanceof AuthError) || error.status !== 401)
             throw error;
+          // Only the read can be retried, and only while the same user remains authenticated.
           await session.check();
           const current = session.snapshot();
           if (
@@ -112,6 +117,7 @@ export function Monitors({
     onRequestState?.('pending');
     let failed = false;
     try {
+      // Renew access and verify the owner before writing; a failed write must not be retried.
       await session.check();
       const current = session.snapshot();
       if (current.status !== 'authenticated' || current.user?.id !== userID)

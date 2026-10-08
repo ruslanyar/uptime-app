@@ -15,6 +15,7 @@ import {
   type MonitorErrors,
 } from '@/lib/monitors/validation';
 
+/** initialValues seeds the draft only on mount; remount to edit a different monitor. */
 export function MonitorForm({
   onSubmit,
   initialValues,
@@ -31,6 +32,7 @@ export function MonitorForm({
   const editing = initialValues !== undefined;
   const title = editing ? 'Редактирование сайта' : 'Новый сайт';
   const seconds = initialValues?.interval_seconds ?? 300;
+  // Use an exact unit so reopening and saving cannot change the interval through rounding.
   const initialUnit: IntervalUnit =
     seconds % 3600 === 0 ? 'hours' : seconds % 60 === 0 ? 'minutes' : 'seconds';
   const divisor =
@@ -47,6 +49,7 @@ export function MonitorForm({
       error.kind === 'network' ||
       error.kind === 'protocol');
   const [pending, setPending] = useState(false);
+  // Block duplicate writes before React applies the disabled state.
   const submitting = useRef(false);
   const urlInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
