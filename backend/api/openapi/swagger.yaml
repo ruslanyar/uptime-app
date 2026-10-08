@@ -1,0 +1,700 @@
+basePath: /api/v1
+definitions:
+  auth.User:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      id:
+        format: uuid
+        type: string
+      name:
+        type: string
+    required:
+    - email
+    - id
+    - name
+    type: object
+  authcontroller.authResponse:
+    properties:
+      user:
+        $ref: '#/definitions/auth.User'
+    required:
+    - user
+    type: object
+  authcontroller.loginRequest:
+    properties:
+      email:
+        maxLength: 254
+        type: string
+      password:
+        maxLength: 128
+        minLength: 15
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  authcontroller.profileRequest:
+    properties:
+      name:
+        maxLength: 50
+        minLength: 2
+        type: string
+      remove_avatar:
+        type: boolean
+    required:
+    - name
+    type: object
+  authcontroller.registerRequest:
+    properties:
+      email:
+        maxLength: 254
+        type: string
+      name:
+        maxLength: 50
+        minLength: 2
+        type: string
+      password:
+        maxLength: 128
+        minLength: 15
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  monitor.Monitor:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      id:
+        format: uuid
+        type: string
+      interval_seconds:
+        type: integer
+      updated_at:
+        format: date-time
+        type: string
+      url:
+        type: string
+    required:
+    - created_at
+    - id
+    - interval_seconds
+    - updated_at
+    - url
+    type: object
+  monitorcontroller.listResponse:
+    properties:
+      monitors:
+        items:
+          $ref: '#/definitions/monitor.Monitor'
+        type: array
+    required:
+    - monitors
+    type: object
+  monitorcontroller.monitorRequest:
+    properties:
+      interval_seconds:
+        example: 60
+        maximum: 86400
+        minimum: 60
+        type: integer
+      url:
+        example: https://example.com
+        maxLength: 2048
+        type: string
+    required:
+    - interval_seconds
+    - url
+    type: object
+  response.ErrorDetail:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    required:
+    - code
+    - message
+    type: object
+  response.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/response.ErrorDetail'
+    required:
+    - error
+    type: object
+info:
+  contact: {}
+  description: 'Uptime API. JSON bodies accept one object, reject unknown fields and
+    are limited to 16 KiB. Requests with Origin require an allowed origin. Mutations
+    require X-CSRF-Protection: 1.'
+  title: Uptime API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Sets HttpOnly access_token and refresh_token cookies.
+      operationId: authLogin
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/authcontroller.loginRequest'
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+            Set-Cookie:
+              description: access_token and refresh_token HttpOnly cookies
+              type: string
+          schema:
+            $ref: '#/definitions/authcontroller.authResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Log in
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Uses refresh_token cookie when present. Idempotent; clears both
+        cookies. Issued access JWTs remain valid.
+      operationId: authLogout
+      parameters:
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+            Set-Cookie:
+              description: access_token and refresh_token HttpOnly cookies
+              type: string
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Log out
+      tags:
+      - auth
+  /auth/me:
+    get:
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence.'
+      operationId: authMe
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/auth.User'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
+  /auth/profile:
+    post:
+      consumes:
+      - application/json
+      - multipart/form-data
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence. Accepts JSON name and optional remove_avatar,
+        or multipart/form-data with exactly one name and one avatar file (JPEG, PNG,
+        GIF or WebP, at most 500 KiB and 16 million pixels). Multipart schema is in
+        x-multipart-request; the body schema describes JSON.'
+      operationId: authUpdateProfile
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/authcontroller.profileRequest'
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/authcontroller.authResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "413":
+          description: Multipart body too large
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update profile
+      tags:
+      - auth
+      x-multipart-request:
+        properties:
+          avatar:
+            description: JPEG, PNG, GIF or WebP; at most 500 KiB and 16 million pixels
+            type: file
+          name:
+            maxLength: 50
+            minLength: 2
+            type: string
+        required:
+        - name
+        - avatar
+        type: object
+  /auth/refresh:
+    post:
+      description: Requires refresh_token cookie. Rotates both cookies while preserving
+        session expiry; invalid tokens clear cookies.
+      operationId: authRefresh
+      parameters:
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+            Set-Cookie:
+              description: access_token and refresh_token HttpOnly cookies
+              type: string
+          schema:
+            $ref: '#/definitions/authcontroller.authResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Registers an account and sets HttpOnly access_token and refresh_token
+        cookies.
+      operationId: authRegister
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/authcontroller.registerRequest'
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+            Set-Cookie:
+              description: access_token and refresh_token HttpOnly cookies
+              type: string
+          schema:
+            $ref: '#/definitions/authcontroller.authResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Email already registered
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Register an account
+      tags:
+      - auth
+  /avatars/{filename}:
+    get:
+      description: Serves generated avatar files. Supports HTTP conditional requests
+        and ranges; missing or invalid filenames return plain-text 404 responses.
+      operationId: avatarGet
+      parameters:
+      - description: Generated UUID filename with .jpg, .png, .gif or .webp extension
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+      responses:
+        "200":
+          description: Avatar image
+          headers:
+            Cache-Control:
+              description: public, max-age=31536000, immutable
+              type: string
+          schema:
+            type: file
+        "206":
+          description: Partial content
+          schema:
+            type: file
+        "304":
+          description: Not Modified
+        "403":
+          description: Origin rejected (application/json)
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: File not found (text/plain)
+          schema:
+            type: string
+        "416":
+          description: Range not satisfiable (text/plain)
+          schema:
+            type: string
+      summary: Get an avatar
+      tags:
+      - avatars
+  /monitors:
+    get:
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence. Returns an empty array when there are
+        no monitors.'
+      operationId: monitorList
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/monitorcontroller.listResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List monitors
+      tags:
+      - monitor
+    post:
+      consumes:
+      - application/json
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence. URL must use HTTP(S), without credentials
+        or fragments.'
+      operationId: monitorCreate
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/monitorcontroller.monitorRequest'
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/monitor.Monitor'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Monitor URL already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a monitor
+      tags:
+      - monitor
+  /monitors/{id}:
+    delete:
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence.'
+      operationId: monitorDelete
+      parameters:
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      - description: Monitor UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Monitor not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a monitor
+      tags:
+      - monitor
+    put:
+      consumes:
+      - application/json
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
+        Authorization header takes precedence. URL must use HTTP(S), without credentials
+        or fragments.'
+      operationId: monitorUpdate
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/monitorcontroller.monitorRequest'
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      - description: Monitor UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/monitor.Monitor'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin or CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Monitor not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Monitor URL already exists
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a monitor
+      tags:
+      - monitor
+securityDefinitions:
+  BearerAuth:
+    description: JWT with the Bearer prefix. Access-cookie is also accepted; a present
+      Authorization header takes precedence even if invalid. Cookie authentication
+      is described per operation because OpenAPI 2.0 has no cookie security scheme.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

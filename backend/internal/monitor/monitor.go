@@ -18,12 +18,12 @@ var ErrConflict = errors.New("monitor already exists")
 var ErrNotFound = errors.New("monitor not found")
 
 type Monitor struct {
-	ID              string    `json:"id"`
+	ID              string    `json:"id" binding:"required" format:"uuid"`
 	UserID          string    `json:"-"`
-	URL             string    `json:"url"`
-	IntervalSeconds int32     `json:"interval_seconds"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	URL             string    `json:"url" binding:"required"`
+	IntervalSeconds int32     `json:"interval_seconds" binding:"required"`
+	CreatedAt       time.Time `json:"created_at" binding:"required" format:"date-time"`
+	UpdatedAt       time.Time `json:"updated_at" binding:"required" format:"date-time"`
 }
 type Store interface {
 	CreateMonitor(context.Context, Monitor) (Monitor, error)

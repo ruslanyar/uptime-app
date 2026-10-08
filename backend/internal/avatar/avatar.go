@@ -78,6 +78,20 @@ func Remove(dir, url string) {
 }
 
 // Serve exposes only generated image names; directory listings and arbitrary files are excluded.
+// @Summary Get an avatar
+// @Description Serves generated avatar files. Supports HTTP conditional requests and ranges; missing or invalid filenames return plain-text 404 responses.
+// @Tags avatars
+// @ID avatarGet
+// @Produce image/jpeg,image/png,image/gif,image/webp
+// @Param filename path string true "Generated UUID filename with .jpg, .png, .gif or .webp extension"
+// @Success 200 {file} file "Avatar image"
+// @Success 206 {file} file "Partial content"
+// @Success 304 "Not Modified"
+// @Header 200 {string} Cache-Control "public, max-age=31536000, immutable"
+// @Failure 403 {object} response.ErrorResponse "Origin rejected (application/json)"
+// @Failure 404 {string} string "File not found (text/plain)"
+// @Failure 416 {string} string "Range not satisfiable (text/plain)"
+// @Router /avatars/{filename} [get]
 func Serve(dir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name, ok := filename(r.URL.Path)

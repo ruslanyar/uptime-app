@@ -10,7 +10,7 @@ import (
 )
 
 type authResponse struct {
-	User auth.User `json:"user"`
+	User auth.User `json:"user" binding:"required"`
 }
 
 func serviceError(w http.ResponseWriter, e error) {

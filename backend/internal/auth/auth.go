@@ -23,9 +23,9 @@ const AccessTTL = 24 * time.Hour
 const SessionTTL = 30 * 24 * time.Hour
 
 type User struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Email     string `json:"email"`
+	ID        string `json:"id" binding:"required" format:"uuid"`
+	Name      string `json:"name" binding:"required"`
+	Email     string `json:"email" binding:"required"`
 	AvatarURL string `json:"avatar_url,omitempty"`
 }
 type Account struct {

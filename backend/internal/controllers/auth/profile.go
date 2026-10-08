@@ -10,6 +10,25 @@ import (
 	"uptime-app/backend/internal/httpapi/response"
 )
 
+// UpdateProfile handles POST /auth/profile.
+// @Summary Update profile
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. Accepts JSON name and optional remove_avatar, or multipart/form-data with exactly one name and one avatar file (JPEG, PNG, GIF or WebP, at most 500 KiB and 16 million pixels). Multipart schema is in x-multipart-request; the body schema describes JSON.
+// @Tags auth
+// @ID authUpdateProfile
+// @Produce json
+// @Accept json,mpfd
+// @Param body body profileRequest true "Request body"
+// @x-multipart-request {"type":"object","required":["name","avatar"],"properties":{"name":{"type":"string","minLength":2,"maxLength":50},"avatar":{"type":"file","description":"JPEG, PNG, GIF or WebP; at most 500 KiB and 16 million pixels"}}}
+// @Param X-CSRF-Protection header string true "CSRF protection" Enums(1)
+// @Security BearerAuth
+// @Success 200 {object} authResponse
+// @Header 200 {string} Cache-Control "no-store"
+// @Failure 400 {object} response.ErrorResponse "Invalid input"
+// @Failure 401 {object} response.ErrorResponse "Invalid credentials or token"
+// @Failure 403 {object} response.ErrorResponse "Origin or CSRF rejected"
+// @Failure 413 {object} response.ErrorResponse "Multipart body too large"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /auth/profile [post]
 func (a *Controller) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw, e := request.AccessToken(r)
@@ -22,10 +41,7 @@ func (a *Controller) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		a.updateProfileImage(w, r, raw)
 		return
 	}
-	var v struct {
-		Name         string `json:"name"`
-		RemoveAvatar bool   `json:"remove_avatar"`
-	}
+	var v profileRequest
 	if e = request.Decode(w, r, &v); e != nil {
 		serviceError(w, e)
 		return

@@ -45,6 +45,25 @@ func failure(w http.ResponseWriter, e error) {
 		response.Error(w, 500, "internal_error", "Internal server error")
 	}
 }
+
+// Create handles POST /monitors.
+// @Summary Create a monitor
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments.
+// @Tags monitor
+// @ID monitorCreate
+// @Produce json
+// @Accept json
+// @Param body body monitorRequest true "Request body"
+// @Param X-CSRF-Protection header string true "CSRF protection" Enums(1)
+// @Security BearerAuth
+// @Success 201 {object} monitor.Monitor
+// @Header 201 {string} Cache-Control "no-store"
+// @Failure 400 {object} response.ErrorResponse "Invalid input"
+// @Failure 401 {object} response.ErrorResponse "Invalid credentials or token"
+// @Failure 403 {object} response.ErrorResponse "Origin or CSRF rejected"
+// @Failure 409 {object} response.ErrorResponse "Monitor URL already exists"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /monitors [post]
 func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw, e := request.AccessToken(r)
@@ -57,10 +76,7 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 		failure(w, e)
 		return
 	}
-	var input struct {
-		URL             string `json:"url"`
-		IntervalSeconds int32  `json:"interval_seconds"`
-	}
+	var input monitorRequest
 	if e = request.Decode(w, r, &input); e != nil {
 		failure(w, e)
 		return
@@ -73,6 +89,20 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, m)
 }
 
+// List handles GET /monitors.
+// @Summary List monitors
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. Returns an empty array when there are no monitors.
+// @Tags monitor
+// @ID monitorList
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} listResponse
+// @Header 200 {string} Cache-Control "no-store"
+// @Failure 400 {object} response.ErrorResponse "Invalid input"
+// @Failure 401 {object} response.ErrorResponse "Invalid credentials or token"
+// @Failure 403 {object} response.ErrorResponse "Origin or CSRF rejected"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /monitors [get]
 func (c *Controller) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw, e := request.AccessToken(r)
@@ -94,11 +124,29 @@ func (c *Controller) List(w http.ResponseWriter, r *http.Request) {
 		// The API contract requires an array even when the service returns nil.
 		items = []monitor.Monitor{}
 	}
-	response.JSON(w, http.StatusOK, struct {
-		Monitors []monitor.Monitor `json:"monitors"`
-	}{items})
+	response.JSON(w, http.StatusOK, listResponse{Monitors: items})
 }
 
+// Update handles PUT /monitors/{id}.
+// @Summary Update a monitor
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments.
+// @Tags monitor
+// @ID monitorUpdate
+// @Produce json
+// @Accept json
+// @Param body body monitorRequest true "Request body"
+// @Param X-CSRF-Protection header string true "CSRF protection" Enums(1)
+// @Param id path string true "Monitor UUID" Format(uuid)
+// @Security BearerAuth
+// @Success 200 {object} monitor.Monitor
+// @Header 200 {string} Cache-Control "no-store"
+// @Failure 400 {object} response.ErrorResponse "Invalid input"
+// @Failure 401 {object} response.ErrorResponse "Invalid credentials or token"
+// @Failure 403 {object} response.ErrorResponse "Origin or CSRF rejected"
+// @Failure 404 {object} response.ErrorResponse "Monitor not found"
+// @Failure 409 {object} response.ErrorResponse "Monitor URL already exists"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /monitors/{id} [put]
 func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw, err := request.AccessToken(r)
@@ -111,10 +159,7 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 		failure(w, err)
 		return
 	}
-	var input struct {
-		URL             string `json:"url"`
-		IntervalSeconds int32  `json:"interval_seconds"`
-	}
+	var input monitorRequest
 	if err = request.Decode(w, r, &input); err != nil {
 		failure(w, err)
 		return
@@ -127,6 +172,23 @@ func (c *Controller) Update(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, m)
 }
 
+// Delete handles DELETE /monitors/{id}.
+// @Summary Delete a monitor
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence.
+// @Tags monitor
+// @ID monitorDelete
+// @Produce json
+// @Param X-CSRF-Protection header string true "CSRF protection" Enums(1)
+// @Param id path string true "Monitor UUID" Format(uuid)
+// @Security BearerAuth
+// @Success 204 "No Content"
+// @Header 204 {string} Cache-Control "no-store"
+// @Failure 400 {object} response.ErrorResponse "Invalid input"
+// @Failure 401 {object} response.ErrorResponse "Invalid credentials or token"
+// @Failure 403 {object} response.ErrorResponse "Origin or CSRF rejected"
+// @Failure 404 {object} response.ErrorResponse "Monitor not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /monitors/{id} [delete]
 func (c *Controller) Delete(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	raw, err := request.AccessToken(r)

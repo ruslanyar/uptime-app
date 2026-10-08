@@ -92,6 +92,7 @@ Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и �
 ```sh
 docker compose --profile test up -d --wait postgres-test
 sh scripts/check-sqlc.sh  # требует sqlc версии из .sqlc-version
+sh scripts/check-openapi.sh
 go test ./... -count=1
 go vet ./...
 go build -o bin/api ./cmd/api
