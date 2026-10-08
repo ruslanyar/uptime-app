@@ -34,6 +34,14 @@ API не применяет миграции автоматически. Тре�
 
 [docs/guides/backend/migrations.md](../docs/guides/backend/migrations.md)
 
+## Документация API
+
+Установите инструменты командой `npm ci` из корня репозитория.
+Из `backend/` выполните `go generate ./cmd/api`, затем откройте
+`api/openapi/redoc.html` в браузере. Для генерации только HTML из существующего
+Swagger: `sh scripts/generate-redoc.sh`.
+HTML использует ReDoc с CDN; для его загрузки нужен доступ к интернету.
+
 ## HTTP-контракт
 
 Пути указаны относительно `/api/v1`:

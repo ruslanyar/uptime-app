@@ -15,3 +15,6 @@ npm-debug.log*
 
 # Uploaded profile images
 /backend/uploads/
+
+# Generated API documentation
+/backend/api/openapi/redoc.html

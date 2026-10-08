@@ -31,7 +31,7 @@ Format Go files with `gofmt`, which uses tabs for indentation. Use lowercase pac
 
 ## OpenAPI Contract
 
-Keep swaggo annotations on every HTTP handler in sync with routes, request DTOs, response schemas, status codes, authentication, and CSRF requirements. After changing the HTTP contract, run `go generate ./cmd/api` from `backend/` and include both `api/openapi/swagger.json` and `api/openapi/swagger.yaml` in the same change. Do not edit generated contracts manually. The generator is pinned as a Go tool in `go.mod`; use it without installing a separate `swag` binary.
+Keep swaggo annotations on every HTTP handler in sync with routes, request DTOs, response schemas, status codes, authentication, and CSRF requirements. Install the pinned Redocly CLI with `npm ci` from the repository root before generating documentation. After changing the HTTP contract, run `go generate ./cmd/api` from `backend/` and include both `api/openapi/swagger.json` and `api/openapi/swagger.yaml` in the same change. This also builds ignored `api/openapi/redoc.html` from `swagger.json`; do not commit the HTML build. To rebuild HTML from the existing contract, run `sh scripts/generate-redoc.sh` from `backend/`. Do not edit generated contracts manually. The generator is pinned as a Go tool in `go.mod`; use it without installing a separate `swag` binary.
 
 Run `sh scripts/check-openapi.sh` from `backend/` before Go checks. It regenerates the contract in a temporary directory and fails if committed files differ.
 
