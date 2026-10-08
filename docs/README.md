@@ -32,6 +32,7 @@ docs/
 ## Правила и контракты
 
 - [Документация](rules/documentation.md).
+- [Комментарии в коде](rules/code-comments.md).
 - [GitHub Flow](rules/github-flow.md).
 - [Коммиты и pull requests](rules/commits-pr.md).
 - [Размещение изменений backend](rules/backend/architecture.md).

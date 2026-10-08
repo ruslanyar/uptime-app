@@ -22,6 +22,10 @@ Run the checks specified in each affected project's guide. No coverage threshold
 
 Use GitHub Flow for new project tasks; see [docs/rules/github-flow.md](docs/rules/github-flow.md)
 
+## Code Comments
+
+Follow [the code comment rules](docs/rules/code-comments.md): explain why, omit obvious narration, document public function contracts, and update comments when changing the code they describe.
+
 ## Commit & Pull Request Guidelines
 
 See [docs/rules/commits-pr.md](docs/rules/commits-pr.md)
