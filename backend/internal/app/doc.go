@@ -1,2 +1,2 @@
-// Package app assembles the authentication API and manages its lifecycle.
+// Package app assembles the API and manages its lifecycle.
 package app

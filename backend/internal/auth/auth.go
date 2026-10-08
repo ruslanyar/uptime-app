@@ -36,6 +36,7 @@ type Session struct {
 	ID, UserID string
 	ExpiresAt  time.Time
 }
+
 type Store interface {
 	Register(context.Context, Account, Session, []byte) error
 	ByEmail(context.Context, string) (Account, error)
@@ -53,6 +54,9 @@ type Result struct {
 	RefreshToken   string    `json:"-"`
 	SessionExpires time.Time `json:"-"`
 }
+
+// Service delegates cancellation and deadlines to Store; validation and
+// cryptographic work do not observe context cancellation.
 type Service struct {
 	store     Store
 	tokens    *Tokens
@@ -63,6 +67,7 @@ func NewService(store Store, tokens *Tokens) (*Service, error) {
 	h, e := HashPassword("dummy password for timing")
 	return &Service{store: store, tokens: tokens, dummyHash: h}, e
 }
+
 func NormalizeEmail(s string) (string, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	a, e := mail.ParseAddress(s)
@@ -71,6 +76,7 @@ func NormalizeEmail(s string) (string, error) {
 	}
 	return s, nil
 }
+
 func Validate(name, email, password string) (string, string, error) {
 	name = strings.TrimSpace(name)
 	email, e := NormalizeEmail(email)
@@ -82,15 +88,20 @@ func Validate(name, email, password string) (string, string, error) {
 func validPassword(password string) bool {
 	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= 15 && utf8.RuneCountInString(password) <= 128
 }
+
+// NewID generates a UUID v4 and panics if the random source fails.
 func NewID() string {
 	b := make([]byte, 16)
 	if _, e := rand.Read(b); e != nil {
 		panic(e)
 	}
+	// Fix the UUID version and variant bits so random bytes form an RFC UUID v4.
 	b[6] = (b[6] & 15) | 64
 	b[8] = (b[8] & 63) | 128
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
+
+// ValidID checks UUID syntax without restricting version or variant.
 func ValidID(s string) bool {
 	if len(s) != 36 {
 		return false
@@ -114,6 +125,7 @@ func refresh() (string, []byte, error) {
 	s := base64.RawURLEncoding.EncodeToString(b)
 	return s, TokenHash(s), nil
 }
+
 func TokenHash(s string) []byte { h := sha256.Sum256([]byte(s)); return h[:] }
 func validRefresh(s string) bool {
 	b, e := base64.RawURLEncoding.DecodeString(s)
@@ -122,6 +134,8 @@ func validRefresh(s string) bool {
 func (s *Service) result(u User, session Session, raw, access string) Result {
 	return Result{access, "Bearer", int(AccessTTL.Seconds()), u, raw, session.ExpiresAt}
 }
+
+// Register returns tokens only after the account and session are persisted.
 func (s *Service) Register(ctx context.Context, name, email, password string) (Result, error) {
 	name, email, e := Validate(name, email, password)
 	if e != nil {
@@ -146,6 +160,8 @@ func (s *Service) Register(ctx context.Context, name, email, password string) (R
 	}
 	return s.result(u, session, raw, access), nil
 }
+
+// Login returns ErrUnauthorized for both unknown emails and wrong passwords.
 func (s *Service) Login(ctx context.Context, email, password string) (Result, error) {
 	email, e := NormalizeEmail(email)
 	if e != nil || !validPassword(password) {
@@ -153,6 +169,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (Result, er
 	}
 	a, e := s.store.ByEmail(ctx, email)
 	if errors.Is(e, ErrUnauthorized) {
+		// Avoid exposing account existence through a faster failure.
 		CheckPassword(s.dummyHash, password)
 		return Result{}, ErrUnauthorized
 	}
@@ -176,6 +193,9 @@ func (s *Service) Login(ctx context.Context, email, password string) (Result, er
 	}
 	return s.result(a.User, session, raw, access), nil
 }
+
+// Refresh preserves session expiry; token reuse revokes the session.
+// Rotation may already be committed when a later signing error is returned.
 func (s *Service) Refresh(ctx context.Context, old string) (Result, error) {
 	if !validRefresh(old) {
 		return Result{}, ErrUnauthorized
@@ -194,12 +214,16 @@ func (s *Service) Refresh(ctx context.Context, old string) (Result, error) {
 	}
 	return s.result(u, session, raw, access), nil
 }
+
+// Logout is idempotent and leaves issued access JWTs valid.
 func (s *Service) Logout(ctx context.Context, raw string) error {
 	if !validRefresh(raw) {
 		return nil
 	}
 	return s.store.Logout(ctx, TokenHash(raw))
 }
+
+// Me does not check refresh-session revocation.
 func (s *Service) Me(ctx context.Context, raw string) (User, error) {
 	id, e := s.tokens.Verify(raw)
 	if e != nil {
@@ -208,7 +232,8 @@ func (s *Service) Me(ctx context.Context, raw string) (User, error) {
 	return s.store.ByID(ctx, id)
 }
 
-// UpdateProfile changes the name and, when supplied, the avatar URL of the authenticated user.
+// UpdateProfile preserves the avatar when avatarURL is omitted.
+// Otherwise its first value replaces the avatar; an empty string removes it.
 func (s *Service) UpdateProfile(ctx context.Context, raw, name string, avatarURL ...string) (User, error) {
 	id, e := s.tokens.Verify(raw)
 	if e != nil {

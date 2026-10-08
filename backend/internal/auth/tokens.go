@@ -13,10 +13,13 @@ type Tokens struct {
 func NewTokens(secret, issuer, audience string) *Tokens {
 	return &Tokens{[]byte(secret), issuer, audience}
 }
+
 func (t *Tokens) Issue(id string) (string, error) {
 	now := time.Now()
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{Subject: id, Issuer: t.issuer, Audience: jwt.ClaimStrings{t.audience}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(AccessTTL)), ID: NewID()}).SignedString(t.secret)
 }
+
+// Verify is stateless: revoking a refresh session leaves access JWTs valid.
 func (t *Tokens) Verify(raw string) (string, error) {
 	c := new(jwt.RegisteredClaims)
 	token, e := jwt.ParseWithClaims(raw, c, func(token *jwt.Token) (any, error) { return t.secret, nil }, jwt.WithValidMethods([]string{"HS256"}), jwt.WithIssuer(t.issuer), jwt.WithAudience(t.audience), jwt.WithExpirationRequired(), jwt.WithIssuedAt())

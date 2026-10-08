@@ -46,6 +46,7 @@ func (a *Controller) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if v.RemoveAvatar {
+		// Keep the file until the database no longer references it.
 		avatar.Remove(a.cfg.AvatarDir, previous.AvatarURL)
 	}
 	response.JSON(w, 200, authResponse{User: u})
@@ -90,10 +91,12 @@ func (a *Controller) updateProfileImage(w http.ResponseWriter, r *http.Request, 
 	}
 	u, err := a.service.UpdateProfile(r.Context(), raw, f.Value["name"][0], url)
 	if err != nil {
+		// Avoid orphaning an upload when the profile update fails.
 		avatar.Remove(a.cfg.AvatarDir, url)
 		serviceError(w, err)
 		return
 	}
+	// A failed update must leave the previous avatar available.
 	avatar.Remove(a.cfg.AvatarDir, previous.AvatarURL)
 	response.JSON(w, 200, authResponse{User: u})
 }

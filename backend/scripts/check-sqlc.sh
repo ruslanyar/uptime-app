@@ -12,5 +12,6 @@ cp -R internal/storage/postgres/sqlc "$snapshot/before"
 sqlc compile
 sqlc generate
 diff -ru "$snapshot/before" internal/storage/postgres/sqlc
+# The second pass catches generators that change their own output on rerun.
 sqlc generate
 diff -ru "$snapshot/before" internal/storage/postgres/sqlc

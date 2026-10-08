@@ -16,6 +16,9 @@ type Service interface {
 	Me(context.Context, string) (auth.User, error)
 	UpdateProfile(context.Context, string, string, ...string) (auth.User, error)
 }
+
+// Controller forwards the request context to Service; avatar file operations
+// do not observe cancellation.
 type Controller struct {
 	service Service
 	cfg     config.Config

@@ -10,6 +10,8 @@ import (
 	"uptime-app/backend/internal/auth"
 )
 
+// Decode rejects null, unknown fields, trailing JSON values and bodies over 16 KiB.
+// Input errors are normalized to auth.ErrInvalid.
 func Decode(w http.ResponseWriter, r *http.Request, v any) error {
 	media, _, e := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if e != nil || media != "application/json" {

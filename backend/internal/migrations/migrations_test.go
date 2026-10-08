@@ -90,6 +90,7 @@ func TestMigrations(t *testing.T) {
 }
 func TestParallelMigrations(t *testing.T) {
 	ctx, pool, url := testdb.New(t)
+	// The delay makes concurrent migrators contend for the migration lock.
 	files := fstest.MapFS{"00001_table.sql": &fstest.MapFile{Data: []byte("SELECT pg_sleep(0.2); CREATE TABLE once_only(id int);\n---- create above / drop below ----\nDROP TABLE once_only;")}}
 	var wg sync.WaitGroup
 	ch := make(chan error, 2)

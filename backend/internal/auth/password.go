@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+// HashPassword produces a salted Argon2id hash; validate password policy separately.
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, 16)
 	if _, e := rand.Read(salt); e != nil {
@@ -18,6 +19,8 @@ func HashPassword(password string) (string, error) {
 	hash := argon2.IDKey([]byte(password), salt, 2, 19*1024, 1, 32)
 	return fmt.Sprintf("$argon2id$v=19$m=19456,t=2,p=1$%s$%s", base64.RawStdEncoding.EncodeToString(salt), base64.RawStdEncoding.EncodeToString(hash)), nil
 }
+
+// CheckPassword rejects unsupported hash parameters even if the password matches.
 func CheckPassword(encoded, password string) bool {
 	parts := strings.Split(encoded, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" || parts[2] != "v=19" {
@@ -26,6 +29,7 @@ func CheckPassword(encoded, password string) bool {
 	var memory, iterations uint32
 	var parallel uint8
 	n, e := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &iterations, &parallel)
+	// Bound verification cost even if a stored hash has been tampered with.
 	if e != nil || n != 3 || memory != 19456 || iterations != 2 || parallel != 1 {
 		return false
 	}

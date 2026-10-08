@@ -20,6 +20,8 @@ type Service interface {
 	Update(context.Context, string, string, string, int32) (monitor.Monitor, error)
 	Delete(context.Context, string, string) error
 }
+
+// Controller delegates cancellation and deadlines to AuthService and Service.
 type Controller struct {
 	auth    AuthService
 	service Service
@@ -39,6 +41,7 @@ func failure(w http.ResponseWriter, e error) {
 	case errors.Is(e, monitor.ErrConflict):
 		response.Error(w, 409, "monitor_conflict", "Monitor already exists")
 	default:
+		// Storage errors can contain internal details; expose only the public message.
 		response.Error(w, 500, "internal_error", "Internal server error")
 	}
 }
@@ -88,6 +91,7 @@ func (c *Controller) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if items == nil {
+		// The API contract requires an array even when the service returns nil.
 		items = []monitor.Monitor{}
 	}
 	response.JSON(w, http.StatusOK, struct {

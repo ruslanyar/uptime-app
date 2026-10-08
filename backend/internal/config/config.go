@@ -30,6 +30,8 @@ func Load() (Config, error) {
 	}
 	return Read(get)
 }
+
+// Read may return a partially populated Config on error; discard it.
 func Read(get func(string) string) (Config, error) {
 	c := Config{DatabaseURL: get("DATABASE_URL"), HTTPAddr: get("HTTP_ADDR"), JWTSecret: get("JWT_SECRET"), JWTIssuer: get("JWT_ISSUER"), JWTAudience: get("JWT_AUDIENCE"), AllowedOrigins: map[string]bool{}}
 	for _, v := range []struct{ k, v string }{{"DATABASE_URL", c.DatabaseURL}, {"JWT_SECRET", c.JWTSecret}, {"JWT_ISSUER", c.JWTIssuer}, {"JWT_AUDIENCE", c.JWTAudience}, {"ALLOWED_ORIGINS", get("ALLOWED_ORIGINS")}} {
@@ -79,6 +81,7 @@ func Read(get func(string) string) (Config, error) {
 		return c, fmt.Errorf("invalid COOKIE_SAME_SITE")
 	}
 	if c.CookieSameSite == http.SameSiteNoneMode && !c.CookieSecure {
+		// Browsers reject SameSite=None cookies without Secure.
 		return c, fmt.Errorf("COOKIE_SAME_SITE=none requires COOKIE_SECURE=true")
 	}
 	return c, nil

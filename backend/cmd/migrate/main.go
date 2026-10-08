@@ -31,6 +31,7 @@ func run() error {
 		return fmt.Errorf("connect to PostgreSQL: %w", e)
 	}
 	defer func() {
+		// A fresh context lets cleanup release session locks after signal cancellation.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = conn.Close(ctx)

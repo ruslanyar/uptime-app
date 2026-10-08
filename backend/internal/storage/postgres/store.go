@@ -13,6 +13,7 @@ import (
 	"uptime-app/backend/internal/storage/postgres/sqlc"
 )
 
+// Store delegates cancellation and deadlines to pgx.
 type Store struct {
 	pool *pgxpool.Pool
 	q    *sqlc.Queries
@@ -35,6 +36,7 @@ func storageError(e error) error {
 	return e
 }
 func rollback(tx pgx.Tx) {
+	// A canceled request must not prevent transaction cleanup.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = tx.Rollback(ctx)
@@ -45,6 +47,8 @@ func createSession(ctx context.Context, q *sqlc.Queries, s auth.Session, hash []
 	}
 	return q.CreateToken(ctx, sqlc.CreateTokenParams{Hash: hash, SessionID: uuid(s.ID)})
 }
+
+// Register is atomic: a failed session insert must not leave an account behind.
 func (s *Store) Register(ctx context.Context, a auth.Account, session auth.Session, hash []byte) error {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
@@ -86,6 +90,9 @@ func (s *Store) CreateSession(ctx context.Context, session auth.Session, hash []
 	}
 	return tx.Commit(ctx)
 }
+
+// Rotate preserves session expiry. Token reuse commits revocation before returning
+// ErrUnauthorized, so an error can still mean that session state changed.
 func (s *Store) Rotate(ctx context.Context, old, newHash []byte) (auth.User, auth.Session, error) {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
@@ -135,6 +142,8 @@ func (s *Store) Rotate(ctx context.Context, old, newHash []byte) (auth.User, aut
 	}
 	return user(u), auth.Session{ID: id(session.ID), UserID: id(session.UserID), ExpiresAt: session.ExpiresAt.Time}, nil
 }
+
+// Logout succeeds for unknown hashes and already revoked sessions.
 func (s *Store) Logout(ctx context.Context, hash []byte) error {
 	tx, e := s.pool.Begin(ctx)
 	if e != nil {
@@ -149,6 +158,7 @@ func (s *Store) Logout(ctx context.Context, hash []byte) error {
 	if e != nil {
 		return e
 	}
+	// Serialize logout with refresh so they cannot modify the session concurrently.
 	if _, e = q.LockSession(ctx, token.SessionID); e != nil {
 		return storageError(e)
 	}
@@ -158,6 +168,7 @@ func (s *Store) Logout(ctx context.Context, hash []byte) error {
 	return tx.Commit(ctx)
 }
 
+// UpdateName preserves an omitted avatarURL; an empty first value removes the avatar.
 func (s *Store) UpdateName(ctx context.Context, userID, name string, avatarURL ...string) (auth.User, error) {
 	var avatar pgtype.Text
 	if len(avatarURL) > 0 {

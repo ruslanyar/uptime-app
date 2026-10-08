@@ -12,10 +12,14 @@ import (
 
 type Status struct{ Current, Target int32 }
 
+// Run applies pending migrations for up, reverts one for down, or reports status.
+// Target always means the latest file version. Database work observes ctx;
+// file loading does not. Errors may follow committed migrations; re-query status.
 func Run(ctx context.Context, conn *pgx.Conn, files fs.FS, operation string) (Status, error) {
 	if operation != "up" && operation != "down" && operation != "status" {
 		return Status{}, fmt.Errorf("expected up, status or down")
 	}
+	// Even status initializes schema_version so an unmigrated database reports zero.
 	m, e := migrate.NewMigrator(ctx, conn, "public.schema_version")
 	if e != nil {
 		return Status{}, e

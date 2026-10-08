@@ -13,6 +13,9 @@ import (
 	"uptime-app/backend/internal/config"
 )
 
+// New returns a disposable database pool and URL with a 60-second context.
+// Missing TEST_DATABASE_URL skips the test; setup errors fail it.
+// Successful setup registers automatic pool closure and database removal.
 func New(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	t.Helper()
 	get, err := config.Environment("test")
@@ -45,8 +48,10 @@ func New(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	}
 	t.Cleanup(func() {
 		pool.Close()
+		// Cleanup must still run after test work has exhausted its deadline.
 		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
+		// FORCE also terminates connections opened outside the returned pool.
 		_, e := admin.Exec(cleanup, "DROP DATABASE "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
 		if e != nil {
 			t.Error(e)

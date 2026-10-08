@@ -27,6 +27,7 @@ func serviceError(w http.ResponseWriter, e error) {
 }
 func (a *Controller) result(w http.ResponseWriter, status int, result auth.Result, e error) {
 	w.Header().Set("Cache-Control", "no-store")
+	// A failed service call must not overwrite the client's existing cookies.
 	if e != nil {
 		serviceError(w, e)
 		return

@@ -27,7 +27,8 @@ func Directory(dir string) string {
 	return dir
 }
 
-// Save validates actual image data, regardless of the supplied name or MIME type.
+// Save returns an API-relative URL and stores the original bytes without re-encoding.
+// Invalid or oversized images return auth.ErrInvalid; I/O errors pass through.
 func Save(dir string, reader io.Reader) (string, error) {
 	data, err := io.ReadAll(io.LimitReader(reader, MaxSize+1))
 	if err != nil {
@@ -45,6 +46,7 @@ func Save(dir string, reader io.Reader) (string, error) {
 	if ext == "" {
 		return "", auth.ErrInvalid
 	}
+	// Valid dimensions alone do not guarantee an intact image payload.
 	if _, _, err = image.Decode(bytes.NewReader(data)); err != nil {
 		return "", auth.ErrInvalid
 	}
@@ -68,6 +70,7 @@ func filename(url string) (string, bool) {
 	return name, auth.ValidID(strings.TrimSuffix(name, ext)) && (ext == ".jpg" || ext == ".png" || ext == ".gif" || ext == ".webp")
 }
 
+// Remove is best-effort: invalid URLs and filesystem errors are ignored.
 func Remove(dir, url string) {
 	if name, ok := filename(url); ok {
 		_ = os.Remove(filepath.Join(Directory(dir), name))
@@ -83,6 +86,7 @@ func Serve(dir string) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Replacements get new URLs, so cached images never need revalidation.
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		http.ServeFile(w, r, filepath.Join(Directory(dir), name))
 	}

@@ -18,9 +18,11 @@ func protect(cfg config.Config, next http.Handler) http.Handler {
 			return
 		}
 		if origin != "" {
+			// Allowed clients must be able to read error responses from handlers too.
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
+		// Preflight grants permission only; it must not invoke application handlers.
 		if r.Method == http.MethodOptions {
 			w.Header().Add("Vary", "Access-Control-Request-Method")
 			w.Header().Add("Vary", "Access-Control-Request-Headers")
@@ -42,6 +44,7 @@ func protect(cfg config.Config, next http.Handler) http.Handler {
 			w.WriteHeader(204)
 			return
 		}
+		// Missing Origin must not let callers bypass the required CSRF header.
 		if (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) && (len(r.Header.Values("X-CSRF-Protection")) != 1 || r.Header.Get("X-CSRF-Protection") != "1") {
 			response.Error(w, 403, "csrf_required", "X-CSRF-Protection: 1 is required")
 			return

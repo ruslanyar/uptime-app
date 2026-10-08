@@ -31,10 +31,14 @@ type Store interface {
 	UpdateMonitor(context.Context, Monitor) (Monitor, error)
 	DeleteMonitor(context.Context, string, string) error
 }
+
+// Service expects an authenticated userID; Store must enforce ownership.
+// Cancellation and deadlines are delegated to Store.
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
 
+// Validate preserves the trimmed URL verbatim because uniqueness uses exact strings.
 func Validate(raw string, interval int32) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if len(raw) == 0 || len(raw) > 2048 || !utf8.ValidString(raw) || interval < 60 || interval > 86400 || strings.Contains(raw, "#") {
@@ -45,6 +49,7 @@ func Validate(raw string, interval int32) (string, error) {
 		return "", ErrInvalid
 	}
 	if strings.HasPrefix(u.Host, "[") {
+		// URL parsing alone does not guarantee that a bracketed host is valid IPv6.
 		addr, err := netip.ParseAddr(u.Hostname())
 		if err != nil || !addr.Is6() {
 			return "", ErrInvalid

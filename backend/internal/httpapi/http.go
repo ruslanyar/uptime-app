@@ -10,7 +10,6 @@ import (
 	monitorcontroller "uptime-app/backend/internal/controllers/monitor"
 )
 
-// Service is the authentication contract used by the HTTP API.
 type Service = authcontroller.Service
 
 func New(service Service, monitors monitorcontroller.Service, cfg config.Config) http.Handler {

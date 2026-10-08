@@ -1,10 +1,11 @@
-// Invoked by TestBrowserCrossSite; no tokens or credentials are printed.
+// Run through TestBrowserCrossSite, which supplies disposable test servers and data.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
   const browser = await chromium.launch({
     ...(process.env.BROWSER_EXECUTABLE ? { executablePath: process.env.BROWSER_EXECUTABLE } : {}),
     headless: true,
+    // Isolate cookie/CORS checks from host proxies and browser privacy defaults.
     args: [
       '--no-proxy-server',
       '--host-resolver-rules=MAP frontend.auth-client.test 127.0.0.1,MAP api.auth-service.test 127.0.0.1',
@@ -12,6 +13,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     ],
   });
   try {
+    // Trust the Go test server's self-signed certificate only in this context.
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
     await page.goto(process.env.BROWSER_FRONTEND_URL);

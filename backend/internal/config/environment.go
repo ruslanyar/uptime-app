@@ -8,9 +8,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Environment reads local configuration without mutating the process environment.
-// Process variables take precedence, followed by environment-specific local
-// overrides, .env.local (development only), environment defaults and .env.
+// Environment captures file values without changing process variables.
+// Its lookup reads process overrides on each call, including explicit empty values.
 func Environment(mode string) (func(string) string, error) {
 	root, err := os.Getwd()
 	if err != nil {
@@ -38,12 +37,14 @@ func environmentAt(root, mode string) (func(string) string, error) {
 	}
 	files := []string{".env." + mode + ".local"}
 	if mode != "test" {
+		// Personal development overrides must not leak into isolated test runs.
 		files = append(files, ".env.local")
 	}
 	files = append(files, ".env."+mode, ".env")
 	values := map[string]string{}
 	for _, file := range files {
 		data, err := godotenv.Read(filepath.Join(root, file))
+		// A missing mode file must not silently fall back to generic settings.
 		if os.IsNotExist(err) && file != ".env."+mode {
 			continue
 		}
@@ -57,6 +58,7 @@ func environmentAt(root, mode string) (func(string) string, error) {
 		}
 	}
 	return func(key string) string {
+		// Falling back from an empty override would mask invalid configuration.
 		if value, exists := os.LookupEnv(key); exists {
 			return value
 		}

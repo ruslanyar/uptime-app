@@ -9,6 +9,7 @@ import (
 
 func (a *Controller) Refresh(w http.ResponseWriter, r *http.Request) {
 	result, e := a.service.Refresh(r.Context(), refreshCookie(r))
+	// Transient failures must leave credentials available for recovery.
 	if errors.Is(e, auth.ErrUnauthorized) {
 		a.clearCookies(w)
 	}

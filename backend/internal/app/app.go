@@ -15,6 +15,9 @@ import (
 	"uptime-app/backend/internal/storage/postgres"
 )
 
+// Run uses ctx for startup and graceful shutdown, not as the base request context.
+// Clean shutdown after cancellation returns nil; startup, serving or shutdown
+// failures return errors. Failed graceful shutdown forcibly closes connections.
 func Run(ctx context.Context, cfg config.Config) error {
 	pool, e := pgxpool.New(ctx, cfg.DatabaseURL)
 	if e != nil {
@@ -32,6 +35,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		return e
 	}
 	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(service, monitor.NewService(postgres.New(pool)), cfg), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	// Let the server goroutine finish even when shutdown stops waiting on done.
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()
 	select {
@@ -42,6 +46,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		return e
 	case <-ctx.Done():
 	}
+	// Shutdown needs its own deadline because ctx is already canceled.
 	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if e = server.Shutdown(shutdown); e != nil {
