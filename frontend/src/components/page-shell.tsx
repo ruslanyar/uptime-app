@@ -1,5 +1,6 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { Activity, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 export function Brand() {
@@ -7,12 +8,16 @@ export function Brand() {
     <Link
       href="/"
       aria-label="Uptime — главная"
-      className="inline-flex shrink-0 items-center gap-3 rounded-sm text-xl font-semibold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+      className="inline-flex shrink-0 items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
     >
-      <span className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
-        <Activity className="size-5" aria-hidden="true" />
-      </span>
-      uptime<span className="text-primary">.</span>
+      <Image
+        src="/brand/logo.svg"
+        alt=""
+        width={252}
+        height={64}
+        className="h-9 w-auto"
+        unoptimized
+      />
     </Link>
   );
 }

@@ -19,6 +19,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Uptime — аккаунт',
   description: 'Регистрация и вход в Uptime',
+  icons: {
+    icon: { url: '/favicon.svg', type: 'image/svg+xml', sizes: 'any' },
+  },
 };
 export default function RootLayout({
   children,
