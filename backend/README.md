@@ -36,11 +36,8 @@ API не применяет миграции автоматически. Тре�
 
 ## Документация API
 
-Установите инструменты командой `npm ci` из корня репозитория.
-Из `backend/` выполните `go generate ./cmd/api`, затем откройте
-`api/openapi/redoc.html` в браузере. Для генерации только HTML из существующего
-Swagger: `sh scripts/generate-redoc.sh`.
-HTML использует ReDoc с CDN; для его загрузки нужен доступ к интернету.
+Аннотации, генерация Swagger/ReDoc и проверка контракта — в локальном скилле
+[openapi-contract](../.codex/skills/openapi-contract/SKILL.md).
 
 ## HTTP-контракт
 
@@ -100,7 +97,7 @@ Authorization, X-CSRF-Protection, возвращает 204 без auth/CSRF и �
 ```sh
 docker compose --profile test up -d --wait postgres-test
 sh scripts/check-sqlc.sh  # требует sqlc версии из .sqlc-version
-sh scripts/check-openapi.sh
+sh ../.codex/skills/openapi-contract/scripts/check-openapi.sh
 go test ./... -count=1
 go vet ./...
 go build -o bin/api ./cmd/api

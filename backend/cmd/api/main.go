@@ -1,7 +1,7 @@
 package main
 
-//go:generate sh ../../scripts/generate-openapi.sh
-//go:generate sh ../../scripts/generate-redoc.sh
+//go:generate sh ../../../.codex/skills/openapi-contract/scripts/generate-openapi.sh
+//go:generate sh ../../../.codex/skills/openapi-contract/scripts/generate-redoc.sh
 
 import (
 	"context"
