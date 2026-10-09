@@ -13,20 +13,25 @@ Create standardized, semantic git commits using the Conventional Commits specifi
 
 ### 1. Analyze Diff
 
+Check status and the staged diff before deciding the commit scope:
+
 ```bash
-# If files are staged, use staged diff
-git diff --staged
-
-# If nothing staged, use working tree diff
-git diff
-
-# Also check status
 git status --porcelain
+git diff --staged
+```
+
+- If the staged diff is not empty, analyze and commit only those staged changes. Do not add, unstage, or regroup changes unless the user explicitly requests it. Leave unstaged changes and untracked files outside the commit.
+- If the staged diff is empty, analyze all working tree changes and inspect untracked files before selecting files to stage. `git diff` does not include untracked files.
+
+```bash
+# Only when the staged diff is empty
+git diff
+git ls-files --others --exclude-standard
 ```
 
 ### 2. Stage Files (if needed)
 
-If nothing is staged or you want to group changes differently:
+Skip this step when changes were already staged, unless the user explicitly requested a different commit scope. If the staged diff was empty, stage the selected changes:
 
 ```bash
 # Stage specific files
