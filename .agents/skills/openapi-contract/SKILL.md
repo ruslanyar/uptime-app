@@ -65,8 +65,8 @@ ReDoc loads from a CDN and needs internet access.
 To generate only Swagger, or only HTML from the existing Swagger:
 
 ```sh
-sh ../.codex/skills/openapi-contract/scripts/generate-openapi.sh
-sh ../.codex/skills/openapi-contract/scripts/generate-redoc.sh
+sh ../.agents/skills/openapi-contract/scripts/generate-openapi.sh
+sh ../.agents/skills/openapi-contract/scripts/generate-redoc.sh
 ```
 
 `generate-openapi.sh` optionally accepts an output directory. Relative output
@@ -77,7 +77,7 @@ paths resolve from `backend/`; an absolute path is useful for temporary output.
 Before the Go checks, run:
 
 ```sh
-sh ../.codex/skills/openapi-contract/scripts/check-openapi.sh
+sh ../.agents/skills/openapi-contract/scripts/check-openapi.sh
 ```
 
 The check regenerates JSON/YAML in a temporary directory and fails if either

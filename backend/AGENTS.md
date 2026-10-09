@@ -29,7 +29,7 @@ Use Go 1.27+. Run these commands from `backend/`:
 
 Format Go files with `gofmt`, which uses tabs for indentation. Use lowercase package names and idiomatic exported identifiers. Keep entry-point code in `cmd/api/` and application setup in `internal/app/`.
 
-Use the project skill [openapi-contract](../.codex/skills/openapi-contract/SKILL.md) when creating, changing, or deleting API routes, changing HTTP contracts, or generating/checking API documentation.
+Use the project skill [openapi-contract](../.agents/skills/openapi-contract/SKILL.md) when creating, changing, or deleting API routes, changing HTTP contracts, or generating/checking API documentation.
 
 ## Testing Guidelines
 
