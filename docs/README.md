@@ -34,7 +34,6 @@ docs/
 - [Документация](rules/documentation.md).
 - [Комментарии в коде](rules/code-comments.md).
 - [GitHub Flow](rules/github-flow.md).
-- [Коммиты и pull requests](rules/commits-pr.md).
 - [Размещение изменений backend](rules/backend/architecture.md).
 - [Конфигурация backend](rules/backend/configuration.md).
 - [Авторизация](rules/backend/authentication.md).

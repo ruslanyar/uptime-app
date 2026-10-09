@@ -26,10 +26,6 @@ Use GitHub Flow for new project tasks; see [docs/rules/github-flow.md](docs/rule
 
 Follow [the code comment rules](docs/rules/code-comments.md): explain why, omit obvious narration, document public function contracts, and update comments when changing the code they describe.
 
-## Commit & Pull Request Guidelines
-
-See [docs/rules/commits-pr.md](docs/rules/commits-pr.md)
-
 ## Security & Configuration
 
 Keep credentials out of source code and commits. Shared development/test env files may contain local defaults only. Keep personal values and secrets in ignored `.env*.local` files; use placeholders in configuration examples. Avoid committing generated builds, dependencies, or coverage output.
