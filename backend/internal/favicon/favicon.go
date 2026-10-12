@@ -139,7 +139,9 @@ func validURL(u *url.URL) bool {
 	return (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" && u.User == nil
 }
 
-func (r *Resolver) fetch(ctx context.Context, u *url.URL) ([]byte, *url.URL, error) {
+// fetch returns a bounded prefix and the final URL, even on a response read error.
+// HTML discovery can use a prefix; image callers must probe for oversize files.
+func (r *Resolver) fetch(ctx context.Context, u *url.URL, readLimit int64) ([]byte, *url.URL, error) {
 	if !validURL(u) {
 		return nil, nil, errUnavailable
 	}
@@ -156,8 +158,8 @@ func (r *Resolver) fetch(ctx context.Context, u *url.URL) ([]byte, *url.URL, err
 	if resp.StatusCode != http.StatusOK {
 		return nil, resp.Request.URL, errUnavailable
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
-	if err != nil || len(body) == 0 || len(body) > maxBody {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, readLimit))
+	if err != nil || len(body) == 0 {
 		return nil, resp.Request.URL, errUnavailable
 	}
 	return body, resp.Request.URL, nil
@@ -219,7 +221,7 @@ func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 		return Icon{}, errUnavailable
 	}
 	var urls []*url.URL
-	body, final, err := r.fetch(ctx, page)
+	body, final, err := r.fetch(ctx, page, maxBody)
 	// The final origin owns the fallback even when its HTML cannot be read.
 	if final != nil {
 		page = final
@@ -235,8 +237,10 @@ func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 			continue
 		}
 		seen[u.String()] = true
-		body, _, err := r.fetch(ctx, u)
-		if err == nil {
+		// The extra byte detects oversized images without accepting a truncated
+		// prefix, even if that prefix happens to decode as a complete image.
+		body, _, err := r.fetch(ctx, u, maxBody+1)
+		if err == nil && len(body) <= maxBody {
 			if kind := imageType(ctx, body); kind != "" {
 				return Icon{Data: body, Type: kind}, nil
 			}
