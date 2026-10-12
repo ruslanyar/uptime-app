@@ -10,6 +10,53 @@ import (
 	"testing"
 )
 
+func TestBaseHrefDiscovery(t *testing.T) {
+	for _, tc := range []struct {
+		name, bases, iconPath string
+	}{
+		{"missing href", `<base target="_blank"><base href="/assets/">`, "/assets/logo.svg"},
+		{"only missing href", `<base target="_blank">`, "/nested/logo.svg"},
+		{"empty href", `<base href=""><base href="/wrong/">`, "/nested/logo.svg"},
+		{"invalid href", `<base href="file:///blocked"><base href="/assets/">`, "/assets/logo.svg"},
+		{"first valid href", `<base href="/assets/"><base href="/wrong/">`, "/assets/logo.svg"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, redirect := range []bool{false, true} {
+				t.Run(map[bool]string{false: "direct", true: "redirect"}[redirect], func(t *testing.T) {
+					var requests []string
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						requests = append(requests, r.URL.Path)
+						switch r.URL.Path {
+						case "/old/page":
+							http.Redirect(w, r, "/nested/page", http.StatusFound)
+						case "/nested/page":
+							_, _ = io.WriteString(w, tc.bases+`<link rel="icon" href="logo.svg">`)
+						case tc.iconPath:
+							_, _ = io.WriteString(w, svg)
+						default:
+							w.WriteHeader(http.StatusNotFound)
+						}
+					}))
+					defer server.Close()
+					path := "/nested/page"
+					want := path + "," + tc.iconPath
+					if redirect {
+						path = "/old/page"
+						want = path + "," + want
+					}
+					icon, err := (&Resolver{client: server.Client()}).Resolve(context.Background(), server.URL+path)
+					if err != nil || icon.Type != "image/svg+xml" || string(icon.Data) != svg {
+						t.Fatalf("icon=%v, error=%v, requests=%v", icon, err, requests)
+					}
+					if got := strings.Join(requests, ","); got != want {
+						t.Fatalf("requests = %s; want %s", got, want)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestLargeHTMLDiscovery(t *testing.T) {
 	for _, redirect := range []bool{false, true} {
 		t.Run(map[bool]string{false: "direct", true: "redirect"}[redirect], func(t *testing.T) {

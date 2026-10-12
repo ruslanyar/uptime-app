@@ -180,8 +180,12 @@ func candidates(body []byte, page *url.URL) []*url.URL {
 				attrs[a.Key] = a.Val
 			}
 			if n.Data == "base" && base == page {
-				if u, err := page.Parse(attrs["href"]); err == nil && validURL(u) {
-					base = u
+				// A target-only base does not set the document URL; an explicit
+				// empty href does and must prevent later bases from overriding it.
+				if href, present := attrs["href"]; present {
+					if u, err := page.Parse(href); err == nil && validURL(u) {
+						base = u
+					}
 				}
 			}
 			if n.Data == "link" && len(links) < 6 {
