@@ -5,6 +5,7 @@
 - `backend/` and `frontend/` each have their own README, configuration, and contributor guide.
 - Shared documentation is in `docs/`, grouped by purpose into `guides/`, `rules/`, `templates/`, and `decisions/`; see [docs/README.md](docs/README.md).
 - Run commands from the relevant project directory.
+- Use Playwright MCP for browser tasks and Postgres MCP for database reads.
 
 ## Validation & Documentation
 

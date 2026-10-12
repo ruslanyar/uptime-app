@@ -1,5 +1,6 @@
 # Local launcher state, secrets and compiled binaries
 /.dev/
+/.playwright-mcp/
 /node_modules/
 .env
 .env.*

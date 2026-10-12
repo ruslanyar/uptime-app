@@ -2,7 +2,9 @@
   "name": "uptime-app",
   "private": true,
   "scripts": {
+    "predev": "npm run clean:playwright",
     "dev": "bash scripts/dev.sh",
+    "clean:playwright": "node scripts/clean-playwright.mjs",
     "db:up": "docker compose -f backend/compose.yaml up -d --wait --wait-timeout 60 postgres",
     "db:stop": "docker compose -f backend/compose.yaml stop postgres"
   },
