@@ -15,6 +15,7 @@ export function Brand() {
         alt=""
         width={252}
         height={64}
+        loading="eager"
         className="h-9 w-auto"
         unoptimized
       />
