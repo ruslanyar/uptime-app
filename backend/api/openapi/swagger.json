@@ -640,6 +640,79 @@
                 }
             }
         },
+        "/monitors/favicon": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Accepts access_token cookie or Authorization: Bearer JWT, with header precedence. Discovers HTML icon links then /favicon.ico. Only public HTTP(S) destinations are fetched, including redirects. Missing, blocked, oversized or unavailable icons return 204. No monitor data is changed.",
+                "produces": [
+                    "image/png",
+                    "image/jpeg",
+                    "image/gif",
+                    "image/webp",
+                    "image/x-icon",
+                    "image/svg+xml"
+                ],
+                "tags": [
+                    "monitor"
+                ],
+                "summary": "Fetch a site favicon",
+                "operationId": "monitorFavicon",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Site URL, with the same validation as monitor URLs",
+                        "name": "url",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Site icon",
+                        "schema": {
+                            "type": "file"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "Icon unavailable"
+                    },
+                    "400": {
+                        "description": "Invalid URL",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials or token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Origin rejected",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Authentication service unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/monitors/{id}": {
             "put": {
                 "security": [

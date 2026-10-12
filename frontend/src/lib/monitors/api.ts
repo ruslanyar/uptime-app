@@ -113,6 +113,21 @@ export class MonitorAPI {
       throw new AuthError('protocol');
     return value.monitors.map(monitor);
   }
+
+  /** Icon discovery is optional: unavailable images and request failures return null. */
+  async favicon(url: string, signal?: AbortSignal): Promise<Blob | null> {
+    try {
+      const response = await this.request(
+        `${this.origin()}/api/v1/monitors/favicon?${new URLSearchParams({ url })}`,
+        { credentials: 'include', cache: 'no-store', signal },
+      );
+      if (response.status !== 200) return null;
+      const blob = await response.blob();
+      return blob.size > 0 && blob.type.startsWith('image/') ? blob : null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 export function monitorErrorMessage(

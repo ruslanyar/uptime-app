@@ -54,6 +54,7 @@ API не применяет миграции автоматически. Тре�
 | `GET /avatars/{filename}` | Без авторизации | `200`, изображение; `404`, если файл отсутствует или имя недопустимо |
 | `POST /monitors` | Access token; JSON `url`, `interval_seconds` | `201`, `Monitor` |
 | `GET /monitors` | Access token | `200`, `{monitors: Monitor[]}` |
+| `GET /monitors/favicon?url=...` | Access token; URL сайта | `200`, изображение; `204`, если иконка недоступна |
 | `PUT /monitors/{id}` | Access token; UUID; JSON `url`, `interval_seconds` | `200`, `Monitor` |
 | `DELETE /monitors/{id}` | Access token; UUID | `204`, без тела |
 
