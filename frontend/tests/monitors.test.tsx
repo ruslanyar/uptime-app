@@ -32,6 +32,7 @@ vi.mock('@/lib/monitors/api', async (original) => ({
     create = create;
     update = update;
     delete = remove;
+    favicon = vi.fn().mockResolvedValue(null);
   },
 }));
 const item = {

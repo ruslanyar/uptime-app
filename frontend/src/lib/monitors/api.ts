@@ -1,5 +1,6 @@
 import { apiOrigin, AuthError } from '@/lib/auth/api';
 import { validateMonitor, type MonitorInput } from './validation';
+import { rasterizeIcon } from './rasterize-icon';
 
 export type Monitor = MonitorInput & {
   id: string;
@@ -112,6 +113,24 @@ export class MonitorAPI {
     )
       throw new AuthError('protocol');
     return value.monitors.map(monitor);
+  }
+
+  /** Icon discovery is optional: unavailable images and request failures return null. */
+  async favicon(url: string, signal?: AbortSignal): Promise<Blob | null> {
+    try {
+      const response = await this.request(
+        `${this.origin()}/api/v1/monitors/favicon?${new URLSearchParams({ url })}`,
+        { credentials: 'include', cache: 'no-store', signal },
+      );
+      if (response.status !== 200) return null;
+      const blob = await response.blob();
+      if (!blob.size || !blob.type.startsWith('image/')) return null;
+      return blob.type === 'image/svg+xml'
+        ? await rasterizeIcon(blob, signal)
+        : blob;
+    } catch {
+      return null;
+    }
   }
 }
 

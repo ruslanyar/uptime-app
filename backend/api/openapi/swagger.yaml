@@ -689,6 +689,58 @@ paths:
       summary: Update a monitor
       tags:
       - monitor
+  /monitors/favicon:
+    get:
+      description: 'Accepts access_token cookie or Authorization: Bearer JWT, with
+        header precedence. Discovers HTML icon links then /favicon.ico. Only public
+        HTTP(S) destinations are fetched, including redirects. Missing, blocked, oversized
+        or unavailable icons return 204. No monitor data is changed.'
+      operationId: monitorFavicon
+      parameters:
+      - description: Site URL, with the same validation as monitor URLs
+        in: query
+        name: url
+        required: true
+        type: string
+      produces:
+      - image/png
+      - image/jpeg
+      - image/gif
+      - image/webp
+      - image/x-icon
+      - image/svg+xml
+      responses:
+        "200":
+          description: Site icon
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            type: file
+        "204":
+          description: Icon unavailable
+        "400":
+          description: Invalid URL
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Origin rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Authentication service unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Fetch a site favicon
+      tags:
+      - monitor
 securityDefinitions:
   BearerAuth:
     description: JWT with the Bearer prefix. Access-cookie is also accepted; a present

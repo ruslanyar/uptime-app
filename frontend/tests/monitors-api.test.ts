@@ -3,6 +3,9 @@ import { AuthError } from '@/lib/auth/api';
 import { MonitorAPI } from '@/lib/monitors/api';
 import { formatInterval, validateMonitor } from '@/lib/monitors/validation';
 
+const { rasterizeIcon } = vi.hoisted(() => ({ rasterizeIcon: vi.fn() }));
+vi.mock('@/lib/monitors/rasterize-icon', () => ({ rasterizeIcon }));
+
 const item = {
   id: 'monitor-id',
   url: 'https://example.com',
@@ -10,6 +13,67 @@ const item = {
   created_at: '2026-10-07T10:00:00Z',
   updated_at: '2026-10-07T10:00:00Z',
 };
+
+it('loads optional icons with cookies, encoded URL and cancellation', async () => {
+  const request = vi
+    .fn()
+    .mockResolvedValue(
+      new Response('icon', { headers: { 'Content-Type': 'image/png' } }),
+    );
+  const signal = new AbortController().signal;
+  const url = 'https://example.com/path?a=1&b=2';
+  const blob = await new MonitorAPI(
+    () => 'https://api.example.com',
+    request,
+  ).favicon(url, signal);
+  expect(blob?.type).toBe('image/png');
+  expect(request).toHaveBeenCalledExactlyOnceWith(
+    `https://api.example.com/api/v1/monitors/favicon?${new URLSearchParams({ url })}`,
+    { credentials: 'include', cache: 'no-store', signal },
+  );
+});
+
+it.each([204, 401, 500])(
+  'treats icon status %s as optional without retries',
+  async (status) => {
+    const request = vi.fn().mockResolvedValue(new Response(null, { status }));
+    expect(
+      await new MonitorAPI(() => 'https://api.example.com', request).favicon(
+        item.url,
+      ),
+    ).toBeNull();
+    expect(request).toHaveBeenCalledOnce();
+  },
+);
+
+it('ignores network errors and non-image responses when discovering icons', async () => {
+  const request = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(
+      new Response('<html/>', { headers: { 'Content-Type': 'text/html' } }),
+    );
+  const api = new MonitorAPI(() => 'https://api.example.com', request);
+  expect(await api.favicon(item.url)).toBeNull();
+  expect(await api.favicon(item.url)).toBeNull();
+});
+
+it('exposes only rasterized pixels from SVG responses, or the globe fallback on failure', async () => {
+  const request = vi.fn().mockImplementation(() =>
+    Promise.resolve(
+      new Response('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>', {
+        headers: { 'Content-Type': 'image/svg+xml' },
+      }),
+    ),
+  );
+  const png = new Blob(['pixels'], { type: 'image/png' });
+  rasterizeIcon.mockResolvedValueOnce(png).mockResolvedValueOnce(null);
+  const api = new MonitorAPI(() => 'https://api.example.com', request);
+  const signal = new AbortController().signal;
+  expect(await api.favicon(item.url, signal)).toBe(png);
+  expect(rasterizeIcon).toHaveBeenCalledWith(expect.any(Blob), signal);
+  expect(await api.favicon(item.url)).toBeNull();
+});
 it.each([
   ['60', 'seconds', 60],
   ['1440', 'minutes', 86400],

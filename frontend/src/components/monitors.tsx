@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   Clock3,
-  Globe,
   Pencil,
   Plus,
   RefreshCw,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { MonitorForm } from '@/components/monitor-form';
+import { SiteIcon } from '@/components/site-icon';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
@@ -282,12 +282,10 @@ export function Monitors({
               <Card className="gap-4 px-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-start gap-4">
-                    <div
-                      aria-hidden="true"
-                      className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-background text-primary"
-                    >
-                      <Globe className="size-5" />
-                    </div>
+                    <SiteIcon
+                      key={`${item.url}:${item.updated_at}`}
+                      url={item.url}
+                    />
                     <div className="min-w-0">
                       <p className="text-sm font-medium wrap-anywhere">
                         {item.url}

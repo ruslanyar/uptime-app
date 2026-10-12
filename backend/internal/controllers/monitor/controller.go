@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"uptime-app/backend/internal/auth"
+	"uptime-app/backend/internal/favicon"
 	"uptime-app/backend/internal/httpapi/request"
 	"uptime-app/backend/internal/httpapi/response"
 	"uptime-app/backend/internal/monitor"
@@ -21,14 +22,19 @@ type Service interface {
 	Delete(context.Context, string, string) error
 }
 
+type IconResolver interface {
+	Resolve(context.Context, string) (favicon.Icon, error)
+}
+
 // Controller delegates cancellation and deadlines to AuthService and Service.
 type Controller struct {
 	auth    AuthService
 	service Service
+	icons   IconResolver
 }
 
 func New(auth AuthService, service Service) *Controller {
-	return &Controller{auth: auth, service: service}
+	return &Controller{auth: auth, service: service, icons: favicon.NewResolver()}
 }
 func failure(w http.ResponseWriter, e error) {
 	switch {
