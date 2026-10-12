@@ -1,0 +1,3 @@
+interface:
+  display_name: "Verify UI with Playwright"
+  short_description: "Check layout and behavior with Playwright MCP"
