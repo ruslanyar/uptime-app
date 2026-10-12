@@ -109,6 +109,13 @@ go build -o bin/api ./cmd/api
 запускается отдельно. Подробности, дополнительные проверки и остановка БД —
 в [docs/guides/backend/testing.md](../docs/guides/backend/testing.md).
 
+При изменении проверки содержимого фавиконок дополнительно проверяйте
+обработку произвольных и усечённых данных встроенным Go fuzzing:
+
+```sh
+go test ./internal/favicon -run '^$' -fuzz '^FuzzImageValidation$' -fuzztime=15s -parallel=2
+```
+
 ## Профиль и аватары
 
 [docs/rules/backend/profile.md](../docs/rules/backend/profile.md)

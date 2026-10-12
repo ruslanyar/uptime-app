@@ -4,7 +4,6 @@ package favicon
 import (
 	"bytes"
 	"context"
-	"encoding/xml"
 	"errors"
 	"io"
 	"net"
@@ -208,27 +207,6 @@ func candidates(body []byte, page *url.URL) []*url.URL {
 	return result
 }
 
-func imageType(body []byte) string {
-	t := http.DetectContentType(body)
-	switch t {
-	case "image/png", "image/jpeg", "image/gif", "image/webp", "image/x-icon":
-		return t
-	}
-	decoder := xml.NewDecoder(bytes.NewReader(body))
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			return ""
-		}
-		if element, ok := token.(xml.StartElement); ok {
-			if element.Name.Local == "svg" && element.Name.Space == "http://www.w3.org/2000/svg" {
-				return "image/svg+xml"
-			}
-			return ""
-		}
-	}
-}
-
 // Resolve tries declared icons then /favicon.ico within a shared five-second budget.
 // Caller cancellation and the budget interrupt DNS, connections and response reads.
 // Missing, blocked, cancelled and failed icons return an error.
@@ -259,7 +237,7 @@ func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 		seen[u.String()] = true
 		body, _, err := r.fetch(ctx, u)
 		if err == nil {
-			if kind := imageType(body); kind != "" {
+			if kind := imageType(ctx, body); kind != "" {
 				return Icon{Data: body, Type: kind}, nil
 			}
 		}
