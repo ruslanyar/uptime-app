@@ -23,6 +23,8 @@ Run the checks specified in each affected project's guide. No coverage threshold
 
 Use GitHub Flow for new project tasks; see [docs/rules/github-flow.md](docs/rules/github-flow.md)
 
+Use GitHub CLI (`gh`) for GitHub operations. For HTTPS Git pushes, use the existing `gh` authentication with `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin <branch>`; do not change global Git configuration. Do not ask again which GitHub client to use. Sandbox approval requirements still apply.
+
 ## Code Comments
 
 Follow [the code comment rules](docs/rules/code-comments.md): explain why, omit obvious narration, document public function contracts, and update comments when changing the code they describe.
