@@ -28,6 +28,13 @@ type Icon struct {
 
 type Resolver struct{ client *http.Client }
 
+type resolveContextKey struct{}
+
+type publicDialer struct {
+	lookup  func(context.Context, string, string) ([]netip.Addr, error)
+	connect func(context.Context, string, string) (net.Conn, error)
+}
+
 // NewResolver blocks private destinations at dial time, also after redirects.
 // DNS results are pinned to the connection to prevent DNS rebinding.
 func NewResolver() *Resolver {
@@ -82,11 +89,31 @@ func publicIP(addr netip.Addr) bool {
 }
 
 func publicDial(ctx context.Context, network, address string) (net.Conn, error) {
+	dialer := publicDialer{
+		lookup:  net.DefaultResolver.LookupNetIP,
+		connect: (&net.Dialer{}).DialContext,
+	}
+	return dialer.dial(ctx, network, address)
+}
+
+func (d publicDialer) dial(ctx context.Context, network, address string) (net.Conn, error) {
+	// Transport detaches request cancellation and deadlines but retains values.
+	// Restore the Resolve budget while also honoring Transport's own cancellation.
+	if resolveCtx, ok := ctx.Value(resolveContextKey{}).(context.Context); ok {
+		operationCtx, cancel := context.WithCancel(resolveCtx)
+		stop := context.AfterFunc(ctx, cancel)
+		defer stop()
+		defer cancel()
+		ctx = operationCtx
+	}
+	if ctx.Err() != nil {
+		return nil, errUnavailable
+	}
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, errUnavailable
 	}
-	addresses, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+	addresses, err := d.lookup(ctx, "ip", host)
 	if err != nil || len(addresses) == 0 {
 		return nil, errUnavailable
 	}
@@ -95,9 +122,13 @@ func publicDial(ctx context.Context, network, address string) (net.Conn, error) 
 			return nil, errUnavailable
 		}
 	}
-	dialer := &net.Dialer{Timeout: 2 * time.Second}
 	for _, addr := range addresses {
-		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(addr.String(), port))
+		if ctx.Err() != nil {
+			return nil, errUnavailable
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		conn, err := d.connect(attemptCtx, network, net.JoinHostPort(addr.String(), port))
+		cancel()
 		if err == nil {
 			return conn, nil
 		}
@@ -199,10 +230,12 @@ func imageType(body []byte) string {
 }
 
 // Resolve tries declared icons then /favicon.ico within a shared five-second budget.
-// It honors caller cancellation; missing, blocked and failed icons return an error.
+// Caller cancellation and the budget interrupt DNS, connections and response reads.
+// Missing, blocked, cancelled and failed icons return an error.
 func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	ctx = context.WithValue(ctx, resolveContextKey{}, ctx)
 	page, err := url.Parse(raw)
 	if err != nil || !validURL(page) {
 		return Icon{}, errUnavailable

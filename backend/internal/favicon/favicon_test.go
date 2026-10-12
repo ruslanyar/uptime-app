@@ -3,15 +3,181 @@ package favicon
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 )
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg"><circle r="8"/></svg>`
+
+func TestResolveNetworkBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		slowDNS        bool
+		dnsDelay       time.Duration
+		callerDeadline time.Duration
+		cancelRunning  bool
+		wantDuration   time.Duration
+		wantAttempts   int
+	}{
+		{name: "slow DNS", slowDNS: true, wantDuration: 5 * time.Second},
+		{name: "caller deadline during DNS", slowDNS: true, callerDeadline: time.Second, wantDuration: time.Second},
+		{name: "unavailable IPs", wantDuration: 5 * time.Second, wantAttempts: 3},
+		{name: "DNS consumes connection budget", dnsDelay: 4 * time.Second, wantDuration: 5 * time.Second, wantAttempts: 1},
+		{name: "cancel running DNS", slowDNS: true, cancelRunning: true, wantDuration: 500 * time.Millisecond},
+		{name: "cancel running connection", cancelRunning: true, wantDuration: 500 * time.Millisecond, wantAttempts: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				start := time.Now()
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				budget := 5 * time.Second
+				if tc.callerDeadline != 0 {
+					var cancelDeadline context.CancelFunc
+					ctx, cancelDeadline = context.WithTimeout(ctx, tc.callerDeadline)
+					defer cancelDeadline()
+					budget = tc.callerDeadline
+				}
+				started := make(chan struct{}, 1)
+				if tc.cancelRunning {
+					go func() {
+						<-started
+						time.Sleep(tc.wantDuration)
+						cancel()
+					}()
+				}
+				lookupCalls, lookupFinished, attempts, connectionsFinished := 0, 0, 0, 0
+				dialer := publicDialer{
+					lookup: func(ctx context.Context, network, host string) ([]netip.Addr, error) {
+						lookupCalls++
+						defer func() { lookupFinished++ }()
+						if deadline, ok := ctx.Deadline(); !ok || !deadline.Equal(start.Add(budget)) {
+							t.Errorf("DNS deadline = %v, %v; want %v", deadline, ok, start.Add(budget))
+						}
+						if tc.slowDNS {
+							started <- struct{}{}
+							<-ctx.Done()
+							return nil, ctx.Err()
+						}
+						time.Sleep(tc.dnsDelay)
+						return []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("9.9.9.9"), netip.MustParseAddr("8.8.4.4")}, nil
+					},
+					connect: func(ctx context.Context, network, address string) (net.Conn, error) {
+						attempts++
+						defer func() { connectionsFinished++ }()
+						if ctx.Err() != nil {
+							t.Error("started connection after cancellation")
+						}
+						wantDeadline := time.Now().Add(2 * time.Second)
+						if end := start.Add(budget); end.Before(wantDeadline) {
+							wantDeadline = end
+						}
+						if deadline, ok := ctx.Deadline(); !ok || !deadline.Equal(wantDeadline) {
+							t.Errorf("connection deadline = %v, %v; want %v", deadline, ok, wantDeadline)
+						}
+						if tc.cancelRunning {
+							started <- struct{}{}
+						}
+						<-ctx.Done()
+						return nil, ctx.Err()
+					},
+				}
+				r := NewResolver()
+				transport := r.client.Transport.(*http.Transport)
+				defer transport.CloseIdleConnections()
+				transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+					if _, ok := ctx.Deadline(); ok {
+						t.Error("test must exercise Transport's detached context")
+					}
+					return dialer.dial(ctx, network, address)
+				}
+				if _, err := r.Resolve(ctx, "http://example.com"); !errors.Is(err, errUnavailable) {
+					t.Fatalf("Resolve error = %v", err)
+				}
+				synctest.Wait()
+				if elapsed := time.Since(start); elapsed != tc.wantDuration {
+					t.Errorf("elapsed = %v; want %v", elapsed, tc.wantDuration)
+				}
+				if lookupCalls != 1 || lookupFinished != 1 || attempts != tc.wantAttempts || connectionsFinished != attempts {
+					t.Errorf("DNS started/finished = %d/%d; connections started/finished = %d/%d; want %d", lookupCalls, lookupFinished, attempts, connectionsFinished, tc.wantAttempts)
+				}
+				time.Sleep(10 * time.Second)
+				synctest.Wait()
+				if lookupCalls != 1 || attempts != tc.wantAttempts {
+					t.Error("network work continued after Resolve returned")
+				}
+			})
+		})
+	}
+}
+
+func TestPublicDialCancellation(t *testing.T) {
+	for _, alreadyCancelled := range []bool{true, false} {
+		ctx, cancel := context.WithCancel(context.Background())
+		lookupCalls, attempts := 0, 0
+		dialer := publicDialer{
+			lookup: func(context.Context, string, string) ([]netip.Addr, error) {
+				lookupCalls++
+				return []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8")}, nil
+			},
+			connect: func(context.Context, string, string) (net.Conn, error) {
+				attempts++
+				cancel()
+				return nil, errUnavailable
+			},
+		}
+		if alreadyCancelled {
+			cancel()
+		}
+		_, err := dialer.dial(ctx, "tcp", "example.com:80")
+		cancel()
+		want := 1
+		if alreadyCancelled {
+			want = 0
+		}
+		if !errors.Is(err, errUnavailable) || lookupCalls != want || attempts != want {
+			t.Fatalf("cancelled=%v: error=%v, lookups=%d, attempts=%d", alreadyCancelled, err, lookupCalls, attempts)
+		}
+	}
+}
+
+func TestPublicDialPinsValidatedAddresses(t *testing.T) {
+	for _, mixed := range []bool{false, true} {
+		client, server := net.Pipe()
+		addresses := []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8")}
+		if mixed {
+			addresses = append(addresses, netip.MustParseAddr("127.0.0.1"))
+		}
+		var attempts []string
+		dialer := publicDialer{
+			lookup: func(context.Context, string, string) ([]netip.Addr, error) { return addresses, nil },
+			connect: func(_ context.Context, network, address string) (net.Conn, error) {
+				attempts = append(attempts, address)
+				if address == "1.1.1.1:80" {
+					return nil, errUnavailable
+				}
+				return client, nil
+			},
+		}
+		conn, err := dialer.dial(context.Background(), "tcp", "example.com:80")
+		client.Close()
+		server.Close()
+		if mixed {
+			if err == nil || conn != nil || len(attempts) != 0 {
+				t.Fatal("mixed public/private DNS results allowed a connection")
+			}
+		} else if err != nil || conn != client || strings.Join(attempts, ",") != "1.1.1.1:80,8.8.8.8:80" {
+			t.Fatalf("connection=%v, error=%v, attempts=%v", conn, err, attempts)
+		}
+	}
+}
 
 func TestDiscovery(t *testing.T) {
 	for _, tc := range []struct {
