@@ -1,5 +1,6 @@
 import { apiOrigin, AuthError } from '@/lib/auth/api';
 import { validateMonitor, type MonitorInput } from './validation';
+import { rasterizeIcon } from './rasterize-icon';
 
 export type Monitor = MonitorInput & {
   id: string;
@@ -123,7 +124,10 @@ export class MonitorAPI {
       );
       if (response.status !== 200) return null;
       const blob = await response.blob();
-      return blob.size > 0 && blob.type.startsWith('image/') ? blob : null;
+      if (!blob.size || !blob.type.startsWith('image/')) return null;
+      return blob.type === 'image/svg+xml'
+        ? await rasterizeIcon(blob, signal)
+        : blob;
     } catch {
       return null;
     }

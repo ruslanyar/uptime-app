@@ -124,11 +124,11 @@ func (r *Resolver) fetch(ctx context.Context, u *url.URL) ([]byte, *url.URL, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil, errUnavailable
+		return nil, resp.Request.URL, errUnavailable
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil || len(body) == 0 || len(body) > maxBody {
-		return nil, nil, errUnavailable
+		return nil, resp.Request.URL, errUnavailable
 	}
 	return body, resp.Request.URL, nil
 }
@@ -208,8 +208,12 @@ func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 		return Icon{}, errUnavailable
 	}
 	var urls []*url.URL
-	if body, final, err := r.fetch(ctx, page); err == nil {
+	body, final, err := r.fetch(ctx, page)
+	// The final origin owns the fallback even when its HTML cannot be read.
+	if final != nil {
 		page = final
+	}
+	if err == nil {
 		urls = candidates(body, page)
 	}
 	fallback := &url.URL{Scheme: page.Scheme, Host: page.Host, Path: "/favicon.ico"}

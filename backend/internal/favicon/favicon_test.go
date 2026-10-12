@@ -86,6 +86,43 @@ func TestUnavailable(t *testing.T) {
 	}
 }
 
+func TestFallbackAfterRedirectWithUnreadableHTML(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"oversized", http.StatusOK, strings.Repeat("x", maxBody+1)},
+		{"empty", http.StatusOK, ""},
+		{"forbidden", http.StatusForbidden, "blocked page"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/favicon.ico" {
+					_, _ = w.Write([]byte(svg))
+					return
+				}
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer final.Close()
+			original := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/favicon.ico" {
+					t.Error("requested fallback from the original origin")
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				http.Redirect(w, r, final.URL, http.StatusFound)
+			}))
+			defer original.Close()
+			icon, err := (&Resolver{client: original.Client()}).Resolve(context.Background(), original.URL)
+			if err != nil || string(icon.Data) != svg {
+				t.Fatal(icon, err)
+			}
+		})
+	}
+}
+
 func TestPublicDestinations(t *testing.T) {
 	for _, ip := range []string{"127.0.0.1", "10.0.0.1", "172.16.1.2", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "192.0.2.1", "198.18.0.1", "224.0.0.1", "240.1.1.1", "::1", "::ffff:127.0.0.1", "fc00::1", "fe80::1", "2001:db8::1", "2002:7f00:1::", "64:ff9b::7f00:1"} {
 		if publicIP(netip.MustParseAddr(ip)) {

@@ -3,6 +3,9 @@ import { AuthError } from '@/lib/auth/api';
 import { MonitorAPI } from '@/lib/monitors/api';
 import { formatInterval, validateMonitor } from '@/lib/monitors/validation';
 
+const { rasterizeIcon } = vi.hoisted(() => ({ rasterizeIcon: vi.fn() }));
+vi.mock('@/lib/monitors/rasterize-icon', () => ({ rasterizeIcon }));
+
 const item = {
   id: 'monitor-id',
   url: 'https://example.com',
@@ -52,6 +55,23 @@ it('ignores network errors and non-image responses when discovering icons', asyn
     );
   const api = new MonitorAPI(() => 'https://api.example.com', request);
   expect(await api.favicon(item.url)).toBeNull();
+  expect(await api.favicon(item.url)).toBeNull();
+});
+
+it('exposes only rasterized pixels from SVG responses, or the globe fallback on failure', async () => {
+  const request = vi.fn().mockImplementation(() =>
+    Promise.resolve(
+      new Response('<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>', {
+        headers: { 'Content-Type': 'image/svg+xml' },
+      }),
+    ),
+  );
+  const png = new Blob(['pixels'], { type: 'image/png' });
+  rasterizeIcon.mockResolvedValueOnce(png).mockResolvedValueOnce(null);
+  const api = new MonitorAPI(() => 'https://api.example.com', request);
+  const signal = new AbortController().signal;
+  expect(await api.favicon(item.url, signal)).toBe(png);
+  expect(rasterizeIcon).toHaveBeenCalledWith(expect.any(Blob), signal);
   expect(await api.favicon(item.url)).toBeNull();
 });
 it.each([
