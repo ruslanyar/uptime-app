@@ -41,6 +41,12 @@ const item = {
   interval_seconds: 300,
   created_at: '2026-10-07T10:00:00Z',
   updated_at: '2026-10-07T10:00:00Z',
+  monitoring: {
+    status: 'unknown' as const,
+    last_check: null,
+    next_check_at: '2026-10-07T10:00:00Z',
+    is_stale: false,
+  },
 };
 beforeEach(() => {
   list.mockReset().mockResolvedValue([]);
@@ -417,4 +423,145 @@ it('retains the confirmation if the session check loses connection', async () =>
   expect(requestState).toHaveBeenLastCalledWith('failed');
   fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
   expect(requestState).toHaveBeenLastCalledWith('idle');
+});
+
+it('polls without losing editor values or focus and recovers after a background failure', async () => {
+  vi.useFakeTimers();
+  try {
+    list.mockResolvedValue([item]);
+    render(<Monitors userID="owner" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: `Редактировать ${item.url}` }),
+    );
+    const input = screen.getByLabelText('URL сайта');
+    fireEvent.change(input, { target: { value: 'https://draft.example.com' } });
+    input.focus();
+    list.mockRejectedValueOnce(new AuthError('network'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(screen.getByText(item.url)).toBeInTheDocument();
+    expect(input).toHaveValue('https://draft.example.com');
+    expect(input).toHaveFocus();
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+    list.mockResolvedValue([
+      {
+        ...item,
+        monitoring: {
+          ...item.monitoring,
+          status: 'up',
+          last_check: {
+            checked_at: item.created_at,
+            http_status: 200,
+            response_time_ms: 123,
+            error_code: null,
+          },
+        },
+      },
+    ]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    expect(screen.getByText('Доступен')).toBeInTheDocument();
+    expect(screen.queryByText('Загружаем сайты…')).not.toBeInTheDocument();
+    expect(input).toHaveValue('https://draft.example.com');
+    expect(input).toHaveFocus();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('pauses hidden polling, refreshes on return and never overlaps reads', async () => {
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, 'visibilityState', 'get');
+  try {
+    visibility.mockReturnValue('visible');
+    list.mockResolvedValue([item]);
+    const view = render(<Monitors userID="owner" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    let resolve!: (value: (typeof item)[]) => void;
+    list.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    const signal = list.mock.calls[1][0] as AbortSignal;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45_000);
+    });
+    expect(list).toHaveBeenCalledTimes(2);
+    visibility.mockReturnValue('hidden');
+    fireEvent(document, new Event('visibilitychange'));
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      resolve([]);
+    });
+    expect(screen.getByText(item.url)).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(list).toHaveBeenCalledTimes(2);
+    visibility.mockReturnValue('visible');
+    await act(async () => {
+      fireEvent(document, new Event('visibilitychange'));
+    });
+    expect(list).toHaveBeenCalledTimes(3);
+    view.unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(list).toHaveBeenCalledTimes(3);
+  } finally {
+    visibility.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
+it('discards a polling result started before a successful edit', async () => {
+  vi.useFakeTimers();
+  try {
+    list.mockResolvedValue([item]);
+    render(<Monitors userID="owner" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    let resolve!: (value: (typeof item)[]) => void;
+    list.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    const signal = list.mock.calls[1][0] as AbortSignal;
+    fireEvent.click(
+      screen.getByRole('button', { name: `Редактировать ${item.url}` }),
+    );
+    fireEvent.change(screen.getByLabelText('URL сайта'), {
+      target: { value: 'https://updated.example.com' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    });
+    expect(signal.aborted).toBe(true);
+    await act(async () => {
+      resolve([item]);
+    });
+    expect(screen.getByText('https://updated.example.com')).toBeInTheDocument();
+    expect(screen.queryByText(item.url)).not.toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
 });

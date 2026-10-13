@@ -116,6 +116,35 @@ definitions:
     required:
     - status
     type: object
+  monitor.CheckResult:
+    properties:
+      checked_at:
+        format: date-time
+        type: string
+      error_code:
+        enum:
+        - http_status
+        - dns
+        - connection
+        - tls
+        - timeout
+        - redirect
+        - blocked_address
+        - network
+        type: string
+        x-nullable: true
+      http_status:
+        type: integer
+        x-nullable: true
+      response_time_ms:
+        type: integer
+        x-nullable: true
+    required:
+    - checked_at
+    - error_code
+    - http_status
+    - response_time_ms
+    type: object
   monitor.Monitor:
     properties:
       created_at:
@@ -126,6 +155,8 @@ definitions:
         type: string
       interval_seconds:
         type: integer
+      monitoring:
+        $ref: '#/definitions/monitor.Monitoring'
       updated_at:
         format: date-time
         type: string
@@ -135,8 +166,33 @@ definitions:
     - created_at
     - id
     - interval_seconds
+    - monitoring
     - updated_at
     - url
+    type: object
+  monitor.Monitoring:
+    properties:
+      is_stale:
+        type: boolean
+      last_check:
+        allOf:
+        - $ref: '#/definitions/monitor.CheckResult'
+        x-nullable: true
+      next_check_at:
+        format: date-time
+        type: string
+      status:
+        enum:
+        - unknown
+        - up
+        - down
+        - blocked
+        type: string
+    required:
+    - is_stale
+    - last_check
+    - next_check_at
+    - status
     type: object
   monitorcontroller.listResponse:
     properties:
@@ -666,7 +722,9 @@ paths:
     get:
       description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
         Authorization header takes precedence. Returns an empty array when there are
-        no monitors.'
+        no monitors. Monitoring includes the latest public HTTP GET check; 2xx is
+        up, all other final statuses or network errors are down. Private destinations
+        are blocked. Results overdue by more than thirty seconds are marked stale.'
       operationId: monitorList
       produces:
       - application/json
@@ -705,7 +763,8 @@ paths:
       - application/json
       description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
         Authorization header takes precedence. URL must use HTTP(S), without credentials
-        or fragments.'
+        or fragments. Public destinations are checked asynchronously; internal destinations
+        are saved but their checks are blocked. Responses include monitoring state.'
       operationId: monitorCreate
       parameters:
       - description: Request body
@@ -815,7 +874,8 @@ paths:
       - application/json
       description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
         Authorization header takes precedence. URL must use HTTP(S), without credentials
-        or fragments.'
+        or fragments. Public destinations are checked asynchronously; internal destinations
+        are saved but their checks are blocked. Responses include monitoring state.'
       operationId: monitorUpdate
       parameters:
       - description: Request body

@@ -15,6 +15,14 @@ type Monitor struct {
 	IntervalSeconds int32
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+	CheckStatus     string
+	CheckedAt       pgtype.Timestamptz
+	HttpStatus      pgtype.Int4
+	ResponseTimeMs  pgtype.Int8
+	CheckError      pgtype.Text
+	NextCheckAt     pgtype.Timestamptz
+	LeaseToken      pgtype.UUID
+	LeaseUntil      pgtype.Timestamptz
 }
 
 type RefreshToken struct {

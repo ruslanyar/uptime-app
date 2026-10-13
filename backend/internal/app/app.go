@@ -31,11 +31,19 @@ func Run(ctx context.Context, cfg config.Config) error {
 	if e != nil {
 		return fmt.Errorf("connect to PostgreSQL: %w", e)
 	}
-	service, e := auth.NewService(postgres.New(pool), auth.NewTokens(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
+	store := postgres.New(pool)
+	service, e := auth.NewService(store, auth.NewTokens(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
 	if e != nil {
 		return e
 	}
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(service, monitor.NewService(postgres.New(pool)), admin.NewService(postgres.New(pool)), pool.Ping, cfg), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	checker := monitor.NewChecker()
+	defer checker.Close()
+	workerCtx, stopWorker := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+	go func() { defer close(workerDone); monitor.RunWorker(workerCtx, store, checker) }()
+	// Join workers before closing their transport and database, including server failures.
+	defer func() { stopWorker(); <-workerDone }()
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(service, monitor.NewService(store), admin.NewService(store), pool.Ping, cfg), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Let the server goroutine finish even when shutdown stops waiting on done.
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()

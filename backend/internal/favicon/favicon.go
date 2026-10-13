@@ -6,14 +6,13 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"strings"
 	"time"
 
 	"golang.org/x/net/html"
+	"uptime-app/backend/internal/publichttp"
 )
 
 const maxBody = 512 * 1024
@@ -27,23 +26,11 @@ type Icon struct {
 
 type Resolver struct{ client *http.Client }
 
-type resolveContextKey struct{}
-
-type publicDialer struct {
-	lookup  func(context.Context, string, string) ([]netip.Addr, error)
-	connect func(context.Context, string, string) (net.Conn, error)
-}
-
 // NewResolver blocks private destinations at dial time, also after redirects.
 // DNS results are pinned to the connection to prevent DNS rebinding.
 func NewResolver() *Resolver {
-	transport := &http.Transport{
-		DialContext:           publicDial,
-		TLSHandshakeTimeout:   2 * time.Second,
-		ResponseHeaderTimeout: 2 * time.Second,
-		MaxIdleConns:          32,
-		IdleConnTimeout:       30 * time.Second,
-	}
+	transport := publichttp.NewTransport()
+	transport.ResponseHeaderTimeout = 2 * time.Second
 	return &Resolver{client: &http.Client{
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -53,86 +40,6 @@ func NewResolver() *Resolver {
 			return nil
 		},
 	}}
-}
-
-var blocked = []netip.Prefix{
-	netip.MustParsePrefix("0.0.0.0/8"),
-	netip.MustParsePrefix("100.64.0.0/10"),
-	netip.MustParsePrefix("192.0.0.0/24"),
-	netip.MustParsePrefix("192.0.2.0/24"),
-	netip.MustParsePrefix("198.18.0.0/15"),
-	netip.MustParsePrefix("198.51.100.0/24"),
-	netip.MustParsePrefix("203.0.113.0/24"),
-	netip.MustParsePrefix("240.0.0.0/4"),
-}
-
-func publicIP(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	if !addr.IsGlobalUnicast() || addr.IsPrivate() || addr.IsLoopback() || addr.IsLinkLocalUnicast() {
-		return false
-	}
-	if addr.Is6() {
-		// Exclude IPv4 translation/tunnelling and special-purpose IPv6 ranges.
-		return netip.MustParsePrefix("2000::/3").Contains(addr) &&
-			!netip.MustParsePrefix("2001::/23").Contains(addr) &&
-			!netip.MustParsePrefix("2001:db8::/32").Contains(addr) &&
-			!netip.MustParsePrefix("2002::/16").Contains(addr) &&
-			!netip.MustParsePrefix("3fff::/20").Contains(addr)
-	}
-	for _, prefix := range blocked {
-		if prefix.Contains(addr) {
-			return false
-		}
-	}
-	return true
-}
-
-func publicDial(ctx context.Context, network, address string) (net.Conn, error) {
-	dialer := publicDialer{
-		lookup:  net.DefaultResolver.LookupNetIP,
-		connect: (&net.Dialer{}).DialContext,
-	}
-	return dialer.dial(ctx, network, address)
-}
-
-func (d publicDialer) dial(ctx context.Context, network, address string) (net.Conn, error) {
-	// Transport detaches request cancellation and deadlines but retains values.
-	// Restore the Resolve budget while also honoring Transport's own cancellation.
-	if resolveCtx, ok := ctx.Value(resolveContextKey{}).(context.Context); ok {
-		operationCtx, cancel := context.WithCancel(resolveCtx)
-		stop := context.AfterFunc(ctx, cancel)
-		defer stop()
-		defer cancel()
-		ctx = operationCtx
-	}
-	if ctx.Err() != nil {
-		return nil, errUnavailable
-	}
-	host, port, err := net.SplitHostPort(address)
-	if err != nil {
-		return nil, errUnavailable
-	}
-	addresses, err := d.lookup(ctx, "ip", host)
-	if err != nil || len(addresses) == 0 {
-		return nil, errUnavailable
-	}
-	for _, addr := range addresses {
-		if !publicIP(addr) {
-			return nil, errUnavailable
-		}
-	}
-	for _, addr := range addresses {
-		if ctx.Err() != nil {
-			return nil, errUnavailable
-		}
-		attemptCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		conn, err := d.connect(attemptCtx, network, net.JoinHostPort(addr.String(), port))
-		cancel()
-		if err == nil {
-			return conn, nil
-		}
-	}
-	return nil, errUnavailable
 }
 
 func validURL(u *url.URL) bool {
@@ -219,7 +126,7 @@ func candidates(body []byte, page *url.URL) []*url.URL {
 func (r *Resolver) Resolve(ctx context.Context, raw string) (Icon, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	ctx = context.WithValue(ctx, resolveContextKey{}, ctx)
+	ctx = publichttp.WithBudget(ctx)
 	page, err := url.Parse(raw)
 	if err != nil || !validURL(page) {
 		return Icon{}, errUnavailable

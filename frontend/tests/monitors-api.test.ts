@@ -12,6 +12,12 @@ const item = {
   interval_seconds: 300,
   created_at: '2026-10-07T10:00:00Z',
   updated_at: '2026-10-07T10:00:00Z',
+  monitoring: {
+    status: 'unknown' as const,
+    last_check: null,
+    next_check_at: '2026-10-07T10:00:00Z',
+    is_stale: false,
+  },
 };
 
 it('loads optional icons with cookies, encoded URL and cancellation', async () => {
@@ -302,4 +308,108 @@ it('rejects an unexpected successful delete status', async () => {
     new MonitorAPI(() => 'https://api.example.com', request).delete(item.id),
   ).rejects.toMatchObject({ kind: 'protocol' });
   expect(request).toHaveBeenCalledTimes(1);
+});
+
+const successfulMonitoring = {
+  status: 'up',
+  last_check: {
+    checked_at: '2026-10-07T10:00:00Z',
+    http_status: 200,
+    response_time_ms: 123,
+    error_code: null,
+  },
+  next_check_at: '2026-10-07T10:05:00Z',
+  is_stale: false,
+};
+it.each([
+  successfulMonitoring,
+  { ...successfulMonitoring, is_stale: true },
+  {
+    ...successfulMonitoring,
+    status: 'down',
+    last_check: {
+      ...successfulMonitoring.last_check,
+      http_status: 503,
+      error_code: 'http_status',
+    },
+  },
+  {
+    ...successfulMonitoring,
+    status: 'down',
+    last_check: {
+      ...successfulMonitoring.last_check,
+      http_status: null,
+      response_time_ms: null,
+      error_code: 'timeout',
+    },
+  },
+  {
+    ...successfulMonitoring,
+    status: 'blocked',
+    last_check: {
+      ...successfulMonitoring.last_check,
+      http_status: null,
+      response_time_ms: null,
+      error_code: 'blocked_address',
+    },
+  },
+])('accepts complete monitoring results', async (monitoring) => {
+  const request = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(JSON.stringify({ monitors: [{ ...item, monitoring }] })),
+    );
+  const result = await new MonitorAPI(
+    () => 'https://api.example.com',
+    request,
+  ).list();
+  expect(result[0].monitoring).toEqual(monitoring);
+});
+it.each([
+  undefined,
+  null,
+  {},
+  { ...successfulMonitoring, status: 'pending' },
+  { ...successfulMonitoring, next_check_at: 'invalid' },
+  { ...successfulMonitoring, is_stale: undefined },
+  { ...successfulMonitoring, last_check: null },
+  {
+    ...successfulMonitoring,
+    last_check: { ...successfulMonitoring.last_check, checked_at: 'invalid' },
+  },
+  {
+    ...successfulMonitoring,
+    last_check: { ...successfulMonitoring.last_check, http_status: 503 },
+  },
+  {
+    ...successfulMonitoring,
+    last_check: { ...successfulMonitoring.last_check, response_time_ms: -1 },
+  },
+  { ...successfulMonitoring, status: 'down' },
+  { ...successfulMonitoring, status: 'blocked' },
+  {
+    ...successfulMonitoring,
+    status: 'unknown',
+    last_check: null,
+    is_stale: true,
+  },
+  {
+    ...successfulMonitoring,
+    status: 'down',
+    last_check: {
+      ...successfulMonitoring.last_check,
+      http_status: null,
+      response_time_ms: null,
+      error_code: 'secret_error',
+    },
+  },
+])('rejects inconsistent monitoring results', async (monitoring) => {
+  const request = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(JSON.stringify({ monitors: [{ ...item, monitoring }] })),
+    );
+  await expect(
+    new MonitorAPI(() => 'https://api.example.com', request).list(),
+  ).rejects.toMatchObject({ kind: 'protocol' });
 });

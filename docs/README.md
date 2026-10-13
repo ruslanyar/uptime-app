@@ -26,6 +26,7 @@ docs/
 ## Гайды
 
 - [Миграции и генерация SQL](guides/backend/migrations.md).
+- [Запуск и диагностика мониторинга](guides/backend/monitoring.md).
 - [Назначение администратора](guides/backend/administration.md).
 - [Проверки backend и браузерная проверка cookies/CORS](guides/backend/testing.md).
 - Запуск и проверки frontend — в [README frontend](../frontend/README.md).

@@ -7,6 +7,8 @@
 - Подключение зависимостей и жизненный цикл API меняйте в `internal/app`;
   `cmd/api` оставляйте точкой входа.
 - Проверку, хранение и выдачу файлов меняйте в `internal/avatar`.
+- Фоновые проверки и планировщик меняйте в `internal/monitor`; общую безопасную
+  работу с публичными HTTP-адресами — в `internal/publichttp`.
 - SQL меняйте в `internal/storage/postgres/queries`, схему — новыми файлами
   в `migrations`. Не редактируйте `internal/storage/postgres/sqlc` вручную;
   см. [миграции и генерацию](../../guides/backend/migrations.md).

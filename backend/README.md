@@ -65,7 +65,8 @@ API не применяет миграции автоматически. Тре�
 `AdminUser` содержит `id`, `name`, `email`, `role`. Список пользователей отсортирован
 по email и ID, размер страницы — 25. `page` по умолчанию 1, целое от 1 до 2147483647;
 пустая или некорректная страница — `400`, за пределами списка — пустой массив.
-`Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`.
+`Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`, `monitoring`.
+Формат результатов и критерии — в [правилах мониторов](../docs/rules/backend/monitors.md#проверки-доступности).
 Readiness проверяет связь с PostgreSQL с таймаутом в одну секунду, возвращает
 `Cache-Control: no-store`; миграции и пользовательские сценарии не проверяет.
 Ответы контроллеров авторизации, профиля, мониторов и админки имеют `Cache-Control: no-store`.
@@ -135,4 +136,5 @@ go test ./internal/favicon -run '^$' -fuzz '^FuzzImageValidation$' -fuzztime=15s
 
 ## Мониторы
 
-[docs/rules/backend/monitors.md](../docs/rules/backend/monitors.md)
+[Правила мониторов](../docs/rules/backend/monitors.md),
+[запуск и диагностика](../docs/guides/backend/monitoring.md).

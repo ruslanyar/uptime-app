@@ -503,3 +503,43 @@ test('retains deletion confirmation after errors and reconciles a missing monito
   ).toHaveCount(1);
   await expect(page.getByText(other, { exact: true })).toBeVisible();
 });
+
+test('checks saved sites without a browser and polls the persisted blocked result', async ({
+  page,
+}) => {
+  await register(page);
+  const url = 'http://127.0.0.1:8080/monitoring-probe';
+  await add(page, url, '1', 'minutes');
+  const card = page.getByRole('listitem').filter({ hasText: url });
+  await expect(
+    card.getByText('Ожидает проверки', { exact: true }),
+  ).toBeVisible();
+  // Leave the monitor screen: the API worker must still complete its check.
+  await page.goto('/account');
+  await page.waitForTimeout(1500);
+  await page.goto('/');
+  await expect(
+    card.getByText('Проверка запрещена', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    card.getByText('Адрес не публичный', { exact: true }),
+  ).toBeVisible();
+  await expect(card.locator('time')).toHaveAttribute('datetime', /Z$/);
+  await expect(card.getByText(/HTTP \d+/)).toHaveCount(0);
+  await expect(card.getByText(/\d+ мс/)).toHaveCount(0);
+  const firstCheckedAt = await card.locator('time').getAttribute('datetime');
+  // Saving the interval invalidates the lease and immediately schedules a fresh check.
+  await card.getByRole('button', { name: `Редактировать ${url}` }).click();
+  await page.getByLabel('Интервал опроса').fill('2');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(card.getByText('Интервал: 2 мин')).toBeVisible();
+  await expect(async () => {
+    expect(await card.locator('time').getAttribute('datetime')).not.toBe(
+      firstCheckedAt,
+    );
+  }).toPass({ timeout: 25_000 });
+  await page.reload();
+  await expect(
+    card.getByText('Проверка запрещена', { exact: true }),
+  ).toBeVisible();
+});

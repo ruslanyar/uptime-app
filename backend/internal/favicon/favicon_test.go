@@ -12,6 +12,7 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+	"uptime-app/backend/internal/publichttp"
 )
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg"><circle r="8"/></svg>`
@@ -54,8 +55,8 @@ func TestResolveNetworkBudget(t *testing.T) {
 					}()
 				}
 				lookupCalls, lookupFinished, attempts, connectionsFinished := 0, 0, 0, 0
-				dialer := publicDialer{
-					lookup: func(ctx context.Context, network, host string) ([]netip.Addr, error) {
+				dialer := publichttp.Dialer{
+					Lookup: func(ctx context.Context, network, host string) ([]netip.Addr, error) {
 						lookupCalls++
 						defer func() { lookupFinished++ }()
 						if deadline, ok := ctx.Deadline(); !ok || !deadline.Equal(start.Add(budget)) {
@@ -69,7 +70,7 @@ func TestResolveNetworkBudget(t *testing.T) {
 						time.Sleep(tc.dnsDelay)
 						return []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("9.9.9.9"), netip.MustParseAddr("8.8.4.4")}, nil
 					},
-					connect: func(ctx context.Context, network, address string) (net.Conn, error) {
+					Connect: func(ctx context.Context, network, address string) (net.Conn, error) {
 						attempts++
 						defer func() { connectionsFinished++ }()
 						if ctx.Err() != nil {
@@ -96,7 +97,7 @@ func TestResolveNetworkBudget(t *testing.T) {
 					if _, ok := ctx.Deadline(); ok {
 						t.Error("test must exercise Transport's detached context")
 					}
-					return dialer.dial(ctx, network, address)
+					return dialer.DialContext(ctx, network, address)
 				}
 				if _, err := r.Resolve(ctx, "http://example.com"); !errors.Is(err, errUnavailable) {
 					t.Fatalf("Resolve error = %v", err)
@@ -122,12 +123,12 @@ func TestPublicDialCancellation(t *testing.T) {
 	for _, alreadyCancelled := range []bool{true, false} {
 		ctx, cancel := context.WithCancel(context.Background())
 		lookupCalls, attempts := 0, 0
-		dialer := publicDialer{
-			lookup: func(context.Context, string, string) ([]netip.Addr, error) {
+		dialer := publichttp.Dialer{
+			Lookup: func(context.Context, string, string) ([]netip.Addr, error) {
 				lookupCalls++
 				return []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("8.8.8.8")}, nil
 			},
-			connect: func(context.Context, string, string) (net.Conn, error) {
+			Connect: func(context.Context, string, string) (net.Conn, error) {
 				attempts++
 				cancel()
 				return nil, errUnavailable
@@ -136,13 +137,13 @@ func TestPublicDialCancellation(t *testing.T) {
 		if alreadyCancelled {
 			cancel()
 		}
-		_, err := dialer.dial(ctx, "tcp", "example.com:80")
+		_, err := dialer.DialContext(ctx, "tcp", "example.com:80")
 		cancel()
 		want := 1
 		if alreadyCancelled {
 			want = 0
 		}
-		if !errors.Is(err, errUnavailable) || lookupCalls != want || attempts != want {
+		if err == nil || lookupCalls != want || attempts != want {
 			t.Fatalf("cancelled=%v: error=%v, lookups=%d, attempts=%d", alreadyCancelled, err, lookupCalls, attempts)
 		}
 	}
@@ -156,9 +157,9 @@ func TestPublicDialPinsValidatedAddresses(t *testing.T) {
 			addresses = append(addresses, netip.MustParseAddr("127.0.0.1"))
 		}
 		var attempts []string
-		dialer := publicDialer{
-			lookup: func(context.Context, string, string) ([]netip.Addr, error) { return addresses, nil },
-			connect: func(_ context.Context, network, address string) (net.Conn, error) {
+		dialer := publichttp.Dialer{
+			Lookup: func(context.Context, string, string) ([]netip.Addr, error) { return addresses, nil },
+			Connect: func(_ context.Context, network, address string) (net.Conn, error) {
 				attempts = append(attempts, address)
 				if address == "1.1.1.1:80" {
 					return nil, errUnavailable
@@ -166,7 +167,7 @@ func TestPublicDialPinsValidatedAddresses(t *testing.T) {
 				return client, nil
 			},
 		}
-		conn, err := dialer.dial(context.Background(), "tcp", "example.com:80")
+		conn, err := dialer.DialContext(context.Background(), "tcp", "example.com:80")
 		client.Close()
 		server.Close()
 		if mixed {
@@ -291,12 +292,12 @@ func TestFallbackAfterRedirectWithUnreadableHTML(t *testing.T) {
 
 func TestPublicDestinations(t *testing.T) {
 	for _, ip := range []string{"127.0.0.1", "10.0.0.1", "172.16.1.2", "192.168.1.1", "169.254.169.254", "100.64.0.1", "0.0.0.0", "192.0.2.1", "198.18.0.1", "224.0.0.1", "240.1.1.1", "::1", "::ffff:127.0.0.1", "fc00::1", "fe80::1", "2001:db8::1", "2002:7f00:1::", "64:ff9b::7f00:1"} {
-		if publicIP(netip.MustParseAddr(ip)) {
+		if publichttp.IsPublic(netip.MustParseAddr(ip)) {
 			t.Errorf("allowed %s", ip)
 		}
 	}
 	for _, ip := range []string{"1.1.1.1", "8.8.8.8", "2606:4700:4700::1111", "::ffff:8.8.8.8"} {
-		if !publicIP(netip.MustParseAddr(ip)) {
+		if !publichttp.IsPublic(netip.MustParseAddr(ip)) {
 			t.Errorf("blocked %s", ip)
 		}
 	}
@@ -327,7 +328,7 @@ func TestRedirectGuard(t *testing.T) {
 	if r.client.CheckRedirect(&http.Request{URL: u}, make([]*http.Request, 3)) == nil {
 		t.Fatal("unbounded redirects")
 	}
-	if _, err := publicDial(context.Background(), "tcp", "127.0.0.1:80"); err == nil {
+	if _, err := publichttp.DialContext(context.Background(), "tcp", "127.0.0.1:80"); err == nil {
 		t.Fatal("private connection allowed")
 	}
 }

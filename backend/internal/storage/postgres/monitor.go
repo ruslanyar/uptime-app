@@ -5,6 +5,8 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 	"uptime-app/backend/internal/monitor"
 	"uptime-app/backend/internal/storage/postgres/sqlc"
 )
@@ -19,7 +21,7 @@ func (s *Store) CreateMonitor(ctx context.Context, m monitor.Monitor) (monitor.M
 		}
 		return monitor.Monitor{}, e
 	}
-	return monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}, nil
+	return monitorRow(row), nil
 }
 
 func (s *Store) ListMonitors(ctx context.Context, userID string) ([]monitor.Monitor, error) {
@@ -29,7 +31,7 @@ func (s *Store) ListMonitors(ctx context.Context, userID string) ([]monitor.Moni
 	}
 	result := make([]monitor.Monitor, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()})
+		result = append(result, monitorRow(row))
 	}
 	return result, nil
 }
@@ -47,7 +49,7 @@ func (s *Store) UpdateMonitor(ctx context.Context, m monitor.Monitor) (monitor.M
 		}
 		return monitor.Monitor{}, err
 	}
-	return monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC()}, nil
+	return monitorRow(row), nil
 }
 
 // DeleteMonitor returns ErrNotFound for missing or foreign rows, including repeat deletes.
@@ -60,4 +62,54 @@ func (s *Store) DeleteMonitor(ctx context.Context, userID, monitorID string) err
 		return monitor.ErrNotFound
 	}
 	return nil
+}
+
+func monitorRow(row sqlc.Monitor) monitor.Monitor {
+	state := monitor.Monitoring{Status: row.CheckStatus, NextCheckAt: row.NextCheckAt.Time.UTC()}
+	if row.CheckedAt.Valid {
+		result := &monitor.CheckResult{CheckedAt: row.CheckedAt.Time.UTC()}
+		if row.HttpStatus.Valid {
+			result.HTTPStatus = &row.HttpStatus.Int32
+		}
+		if row.ResponseTimeMs.Valid {
+			result.ResponseTimeMS = &row.ResponseTimeMs.Int64
+		}
+		if row.CheckError.Valid {
+			result.ErrorCode = &row.CheckError.String
+		}
+		state.LastCheck = result
+		state.IsStale = time.Now().After(state.NextCheckAt.Add(30 * time.Second))
+	}
+	return monitor.Monitor{ID: id(row.ID), UserID: id(row.UserID), URL: row.Url, IntervalSeconds: row.IntervalSeconds, CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(), Monitoring: state}
+}
+
+// ClaimMonitorChecks atomically leases at most limit due rows for thirty seconds.
+// The returned tokens must be supplied when completing work; no transaction stays open.
+func (s *Store) ClaimMonitorChecks(ctx context.Context, limit int32) ([]monitor.CheckJob, error) {
+	rows, err := s.q.ClaimMonitorChecks(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	jobs := make([]monitor.CheckJob, 0, len(rows))
+	for _, row := range rows {
+		jobs = append(jobs, monitor.CheckJob{ID: id(row.ID), URL: row.Url, LeaseToken: id(row.LeaseToken)})
+	}
+	return jobs, nil
+}
+
+// CompleteMonitorCheck ignores deleted, edited, expired or replaced leases.
+// It schedules from database completion time and never changes configuration timestamps.
+func (s *Store) CompleteMonitorCheck(ctx context.Context, job monitor.CheckJob, status string, result monitor.CheckResult) (bool, error) {
+	args := sqlc.CompleteMonitorCheckParams{ID: uuid(job.ID), LeaseToken: uuid(job.LeaseToken), CheckStatus: status, CheckedAt: pgtype.Timestamptz{Time: result.CheckedAt, Valid: true}}
+	if result.HTTPStatus != nil {
+		args.HttpStatus = pgtype.Int4{Int32: *result.HTTPStatus, Valid: true}
+	}
+	if result.ResponseTimeMS != nil {
+		args.ResponseTimeMs = pgtype.Int8{Int64: *result.ResponseTimeMS, Valid: true}
+	}
+	if result.ErrorCode != nil {
+		args.CheckError = pgtype.Text{String: *result.ErrorCode, Valid: true}
+	}
+	count, err := s.q.CompleteMonitorCheck(ctx, args)
+	return count == 1, err
 }

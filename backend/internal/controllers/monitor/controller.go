@@ -54,7 +54,7 @@ func failure(w http.ResponseWriter, e error) {
 
 // Create handles POST /monitors.
 // @Summary Create a monitor
-// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments.
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments. Public destinations are checked asynchronously; internal destinations are saved but their checks are blocked. Responses include monitoring state.
 // @Tags monitor
 // @ID monitorCreate
 // @Produce json
@@ -97,7 +97,7 @@ func (c *Controller) Create(w http.ResponseWriter, r *http.Request) {
 
 // List handles GET /monitors.
 // @Summary List monitors
-// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. Returns an empty array when there are no monitors.
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. Returns an empty array when there are no monitors. Monitoring includes the latest public HTTP GET check; 2xx is up, all other final statuses or network errors are down. Private destinations are blocked. Results overdue by more than thirty seconds are marked stale.
 // @Tags monitor
 // @ID monitorList
 // @Produce json
@@ -135,7 +135,7 @@ func (c *Controller) List(w http.ResponseWriter, r *http.Request) {
 
 // Update handles PUT /monitors/{id}.
 // @Summary Update a monitor
-// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments.
+// @Description Accepts access_token cookie or Authorization: Bearer JWT. A present Authorization header takes precedence. URL must use HTTP(S), without credentials or fragments. Public destinations are checked asynchronously; internal destinations are saved but their checks are blocked. Responses include monitoring state.
 // @Tags monitor
 // @ID monitorUpdate
 // @Produce json
