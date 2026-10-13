@@ -1,20 +1,3 @@
-[mcp_servers.postgres]
-command = "docker"
-args = [
-  "run",
-  "--rm",
-  "-i",
-  "--network=backend_default",
-  "-e",
-  "DATABASE_URI",
-  "crystaldba/postgres-mcp",
-  "--access-mode=restricted",
-]
-startup_timeout_sec = 60
-
-[mcp_servers.postgres.env]
-DATABASE_URI = "postgresql://uptime:local-development-only@postgres:5432/uptime?sslmode=disable"
-
 [mcp_servers.playwright]
 command = "npx"
 args = ["@playwright/mcp@latest"]
