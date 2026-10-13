@@ -150,10 +150,13 @@ test("formatter reports parse errors instead of claiming success", (t) => {
 
 test("session context reports clean, dirty and detached repositories from nested directories", async (t) => {
   const { root, git, write } = fixture(t);
+  const context = await workspaceContext(root);
   assert.match(
-    await workspaceContext(root),
-    /Branch: "main"\. Uncommitted changes: none/,
+    context,
+    /API readiness http:\/\/localhost:8080\/api\/v1\/health\/ready:/,
   );
+  assert.doesNotMatch(context, /\/auth\/me/);
+  assert.match(context, /Branch: "main"\. Uncommitted changes: none/);
   write("nested/new.txt", "demo");
   assert.match(
     await workspaceContext(join(root, "nested")),
