@@ -59,7 +59,7 @@ export async function workspaceContext(cwd) {
   }
   const targets = [
     ["Frontend", "http://localhost:3000/"],
-    ["API", "http://localhost:8080/api/v1/auth/me"],
+    ["API readiness", "http://localhost:8080/api/v1/health/ready"],
   ];
   const observations = await Promise.all(
     targets.map(async ([name, url]) => `${name} ${url}: ${await probe(url)}.`),
@@ -67,7 +67,7 @@ export async function workspaceContext(cwd) {
   return [
     repository,
     ...observations,
-    "HTTP responses indicate reachability only; authentication errors are expected without credentials. Addresses are the canonical local defaults; custom ports are not probed.",
+    "Frontend HTTP responses indicate reachability only. API readiness: HTTP 200 means ready, HTTP 503 means not ready; other statuses do not confirm readiness. Addresses are the canonical local defaults; custom ports are not probed.",
   ].join("\n");
 }
 
