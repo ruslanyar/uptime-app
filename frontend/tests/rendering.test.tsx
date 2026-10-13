@@ -84,7 +84,12 @@ describe('server content and session navigation', () => {
 
   it('displays authenticated dashboard and account', () => {
     auth.status = 'authenticated';
-    auth.user = { id: '1', name: 'Анна', email: 'anna@example.com' };
+    auth.user = {
+      id: '1',
+      name: 'Анна',
+      email: 'anna@example.com',
+      role: 'user' as const,
+    };
     expect(renderToString(<Dashboard />)).toContain('Меню пользователя');
     redirect.mockClear();
     expect(renderToString(<Account />)).toContain('anna@example.com');

@@ -123,6 +123,8 @@ BROWSER_EXECUTABLE=/usr/bin/google-chrome npm run test:e2e
 - Требуются Docker Compose, Go версии backend, OpenSSL и свободные порты
   55432, 13000, 13001, 13443, 13999, 18080, 18081, 18443.
 - Runner использует `.env.test` обоих проектов, создаёт временную БД и запускает API.
+  `E2E_DATABASE_NAME` генерируется в Playwright config и передаётся runner/fixtures;
+  admin-сценарии назначают роль командой backend только в этой временной БД.
   Не задавайте production URL или credentials. `.env.local` не используется для test;
   переменные процесса имеют приоритет. Не подменяйте успешные API-сценарии моками.
 - Не запускайте параллельно Go integration tests: E2E управляет всем `postgres-test`

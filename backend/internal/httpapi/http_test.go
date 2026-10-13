@@ -21,7 +21,7 @@ type fakeService struct {
 
 func (f *fakeService) result() (auth.Result, error) {
 	f.calls++
-	return auth.Result{AccessToken: "access", TokenType: "Bearer", ExpiresIn: 86400, User: auth.User{ID: auth.NewID(), Name: "User", Email: "user@example.com"}, RefreshToken: "secret-refresh", SessionExpires: time.Now().Add(time.Hour)}, f.err
+	return auth.Result{AccessToken: "access", TokenType: "Bearer", ExpiresIn: 86400, User: auth.User{ID: auth.NewID(), Name: "User", Email: "user@example.com", Role: "user"}, RefreshToken: "secret-refresh", SessionExpires: time.Now().Add(time.Hour)}, f.err
 }
 func (f *fakeService) Register(context.Context, string, string, string) (auth.Result, error) {
 	return f.result()
@@ -56,7 +56,7 @@ func TestProtection(t *testing.T) {
 		for _, origin := range []string{"", "http://localhost:3000", "https://client.example", "http://localhost:3001", "https://localhost:3000", "https://unknown.example", "null"} {
 			for _, csrf := range []string{"", "0", "1"} {
 				f := &fakeService{}
-				w := request(New(f, nil, nil, cfg()), "POST", path, origin, csrf, `{"email":"e@x.com","password":"password"}`)
+				w := request(New(f, nil, nil, nil, cfg()), "POST", path, origin, csrf, `{"email":"e@x.com","password":"password"}`)
 				allowed := (origin == "" || cfg().AllowedOrigins[origin]) && csrf == "1"
 				if !allowed && (w.Code != 403 || f.calls != 0 || len(w.Result().Cookies()) != 0) {
 					t.Fatalf("%s %s %s: %d calls %d", path, origin, csrf, w.Code, f.calls)
@@ -79,7 +79,7 @@ func TestPreflight(t *testing.T) {
 		r.Header.Set("Access-Control-Request-Method", tc.method)
 		r.Header.Set("Access-Control-Request-Headers", tc.headers)
 		w := httptest.NewRecorder()
-		New(f, nil, nil, cfg()).ServeHTTP(w, r)
+		New(f, nil, nil, nil, cfg()).ServeHTTP(w, r)
 		if w.Code != tc.status || f.calls != 0 {
 			t.Fatal(tc, w.Code, f.calls)
 		}
@@ -92,7 +92,7 @@ func TestResponses(t *testing.T) {
 		if path == "register" {
 			body = `{"name":"User","email":"u@x.com","password":"long password here"}`
 		}
-		w := request(New(f, nil, nil, cfg()), "POST", path, "https://client.example", "1", body)
+		w := request(New(f, nil, nil, nil, cfg()), "POST", path, "https://client.example", "1", body)
 		want := 200
 		if path == "register" {
 			want = 201
@@ -106,7 +106,7 @@ func TestResponses(t *testing.T) {
 		}
 		var user map[string]any
 		_ = json.Unmarshal(payload["user"], &user)
-		if len(user) != 3 || user["id"] == nil || user["name"] != "User" || user["email"] != "user@example.com" {
+		if len(user) != 4 || user["id"] == nil || user["name"] != "User" || user["email"] != "user@example.com" || user["role"] != "user" {
 			t.Fatal("unexpected user fields")
 		}
 		if w.Header().Get("Cache-Control") != "no-store" {
@@ -138,13 +138,13 @@ func TestResponses(t *testing.T) {
 		local := cfg()
 		local.CookieSecure = false
 		local.CookieSameSite = mode
-		w := request(New(&fakeService{}, nil, nil, local), "POST", "refresh", "", "1", "")
+		w := request(New(&fakeService{}, nil, nil, nil, local), "POST", "refresh", "", "1", "")
 		for _, c := range w.Result().Cookies() {
 			if c.Secure || c.SameSite != mode {
 				t.Fatal("local cookie attributes")
 			}
 		}
-		w = request(New(&fakeService{}, nil, nil, local), "POST", "logout", "", "1", "")
+		w = request(New(&fakeService{}, nil, nil, nil, local), "POST", "logout", "", "1", "")
 		if w.Code != 204 {
 			t.Fatal(w.Code)
 		}
@@ -159,7 +159,7 @@ func TestResponses(t *testing.T) {
 			if path == "register" {
 				body = `{"name":"User","email":"u@x.com","password":"long password here"}`
 			}
-			w := request(New(&fakeService{err: tc.err}, nil, nil, cfg()), "POST", path, "https://client.example", "1", body)
+			w := request(New(&fakeService{err: tc.err}, nil, nil, nil, cfg()), "POST", path, "https://client.example", "1", body)
 			if w.Code != tc.status || !strings.Contains(w.Body.String(), `"error"`) || w.Header().Get("Access-Control-Allow-Origin") == "" {
 				t.Fatal(path, w.Code)
 			}
@@ -170,7 +170,7 @@ func TestResponses(t *testing.T) {
 			}
 		}
 	}
-	w := request(New(&fakeService{err: errors.New("database unavailable")}, nil, nil, cfg()), "POST", "logout", "", "1", "")
+	w := request(New(&fakeService{err: errors.New("database unavailable")}, nil, nil, nil, cfg()), "POST", "logout", "", "1", "")
 	if w.Code != 500 || len(w.Result().Cookies()) != 0 {
 		t.Fatal("failed logout changed cookies")
 	}
@@ -217,7 +217,7 @@ func TestMeTokenSelection(t *testing.T) {
 			r.AddCookie(&http.Cookie{Name: "access_token", Value: tc.cookie})
 		}
 		w := httptest.NewRecorder()
-		New(f, nil, nil, cfg()).ServeHTTP(w, r)
+		New(f, nil, nil, nil, cfg()).ServeHTTP(w, r)
 		if w.Code != tc.status || f.meToken != tc.token || w.Header().Get("Cache-Control") != "no-store" {
 			t.Fatal("me token selection", w.Code, f.meToken)
 		}
@@ -229,14 +229,14 @@ func TestMeTokenSelection(t *testing.T) {
 func TestJSONAndMe(t *testing.T) {
 	for _, body := range []string{"", `null`, `{`, `{}`, `{"unknown":1}`, `{} {}`, strings.Repeat("x", 20000)} {
 		f := &fakeService{}
-		w := request(New(f, nil, nil, cfg()), "POST", "login", "", "1", body)
+		w := request(New(f, nil, nil, nil, cfg()), "POST", "login", "", "1", body)
 
 		if w.Code != 400 || f.calls != 0 {
 			t.Fatal(body[:min(len(body), 30)], w.Code)
 		}
 	}
 	f := &fakeService{}
-	h := New(f, nil, nil, cfg())
+	h := New(f, nil, nil, nil, cfg())
 	w := request(h, "GET", "me", "", "", "")
 	if w.Code != 401 || f.calls != 0 {
 		t.Fatal(w.Code)
@@ -281,7 +281,7 @@ func TestUpdateProfile(t *testing.T) {
 			r.AddCookie(&http.Cookie{Name: "access_token", Value: tc.token})
 		}
 		w := httptest.NewRecorder()
-		New(f, nil, nil, cfg()).ServeHTTP(w, r)
+		New(f, nil, nil, nil, cfg()).ServeHTTP(w, r)
 		if w.Code != tc.status {
 			t.Fatal(w.Code, w.Body.String())
 		}

@@ -10,7 +10,7 @@ import (
 
 func TestReadinessDatabase(t *testing.T) {
 	_, pool, _ := testdb.New(t)
-	handler := httpapi.New(nil, nil, pool.Ping, config.Config{})
+	handler := httpapi.New(nil, nil, nil, pool.Ping, config.Config{})
 	check := func(want int) {
 		t.Helper()
 		w := httptest.NewRecorder()

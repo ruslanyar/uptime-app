@@ -36,4 +36,5 @@ type User struct {
 	Email        string
 	PasswordHash string
 	AvatarUrl    string
+	Role         string
 }

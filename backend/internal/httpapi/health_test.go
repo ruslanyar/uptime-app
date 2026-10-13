@@ -23,7 +23,7 @@ func TestReadiness(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			auth := &fakeService{}
-			h := New(auth, nil, tc.check, cfg())
+			h := New(auth, nil, nil, tc.check, cfg())
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest("GET", "/api/v1/health/ready", nil)
 			r.Header.Set("Authorization", "invalid")
@@ -41,7 +41,7 @@ func TestReadinessDeadlineAndCancellation(t *testing.T) {
 		if canceled {
 			cancel()
 		}
-		h := New(nil, nil, func(checkCtx context.Context) error {
+		h := New(nil, nil, nil, func(checkCtx context.Context) error {
 			deadline, ok := checkCtx.Deadline()
 			if !ok || time.Until(deadline) > time.Second {
 				t.Fatal("missing readiness budget")
@@ -66,7 +66,7 @@ func TestReadinessDeadlineAndCancellation(t *testing.T) {
 
 func TestReadinessProtectionAndHead(t *testing.T) {
 	calls := 0
-	h := New(nil, nil, func(context.Context) error { calls++; return nil }, cfg())
+	h := New(nil, nil, nil, func(context.Context) error { calls++; return nil }, cfg())
 	r := httptest.NewRequest("GET", "/api/v1/health/ready", nil)
 	r.Header.Set("Origin", "https://unknown.example")
 	w := httptest.NewRecorder()

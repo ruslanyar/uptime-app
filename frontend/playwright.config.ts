@@ -1,4 +1,5 @@
 import { backendTestEnv } from './scripts/test-env.mjs';
+import { randomBytes } from 'node:crypto';
 import { defineConfig } from '@playwright/test';
 
 // Local servers must bypass inherited CI HTTP proxies.
@@ -13,6 +14,8 @@ process.env.NO_PROXY = [
   .join(',');
 process.env.no_proxy = process.env.NO_PROXY;
 process.env.FRONTEND_E2E_JWT_SECRET = backendTestEnv().JWT_SECRET;
+// Share only the disposable database name with fixtures that invoke the admin CLI.
+process.env.E2E_DATABASE_NAME ??= `frontend_e2e_${randomBytes(8).toString('hex')}`;
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,

@@ -1,5 +1,43 @@
 basePath: /api/v1
 definitions:
+  admin.List:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/admin.User'
+        type: array
+    required:
+    - page
+    - page_size
+    - total
+    - users
+    type: object
+  admin.User:
+    properties:
+      email:
+        type: string
+      id:
+        format: uuid
+        type: string
+      name:
+        type: string
+      role:
+        enum:
+        - user
+        - admin
+        type: string
+    required:
+    - email
+    - id
+    - name
+    - role
+    type: object
   auth.User:
     properties:
       avatar_url:
@@ -11,10 +49,16 @@ definitions:
         type: string
       name:
         type: string
+      role:
+        enum:
+        - user
+        - admin
+        type: string
     required:
     - email
     - id
     - name
+    - role
     type: object
   authcontroller.authResponse:
     properties:
@@ -143,6 +187,110 @@ info:
   title: Uptime API
   version: "1.0"
 paths:
+  /admin/users:
+    get:
+      description: Requires current admin role in PostgreSQL. Accepts access_token
+        cookie or Bearer JWT; a present Authorization header takes precedence. Sorted
+        by email and ID, 25 users per page. Out-of-range pages return an empty array.
+      operationId: adminUsersList
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/admin.List'
+        "400":
+          description: Invalid page
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Admin role required or Origin rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List registered users
+      tags:
+      - admin
+  /admin/users/{id}:
+    delete:
+      description: Requires current admin role in PostgreSQL. Accepts access_token
+        cookie or Bearer JWT; a present Authorization header takes precedence. Deletes
+        monitors, sessions and refresh tokens by cascade. Admin accounts, including
+        the caller, are protected.
+      operationId: adminUserDelete
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: CSRF protection
+        enum:
+        - "1"
+        in: header
+        name: X-CSRF-Protection
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+        "400":
+          description: Invalid UUID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "401":
+          description: Invalid credentials or token
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "403":
+          description: Admin role required or Origin/CSRF rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Admin account protected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Permanently delete a regular user
+      tags:
+      - admin
   /auth/login:
     post:
       consumes:

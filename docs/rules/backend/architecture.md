@@ -1,8 +1,8 @@
 # Размещение изменений
 
-- HTTP-разбор и ответы меняйте в `internal/controllers/auth` или
-  `internal/controllers/monitor` или `internal/controllers/health`;
-  бизнес-правила — в `internal/auth` и `internal/monitor`.
+- HTTP-разбор и ответы меняйте в `internal/controllers/auth`,
+  `internal/controllers/monitor`, `internal/controllers/admin` или `internal/controllers/health`;
+  бизнес-правила — в `internal/auth`, `internal/monitor` и `internal/admin`.
 - Маршруты и общую защиту CORS/CSRF меняйте в `internal/httpapi`.
 - Подключение зависимостей и жизненный цикл API меняйте в `internal/app`;
   `cmd/api` оставляйте точкой входа.

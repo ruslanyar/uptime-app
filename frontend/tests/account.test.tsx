@@ -10,7 +10,12 @@ const { auth, mutate } = vi.hoisted(() => {
     mutate,
     auth: {
       status: 'authenticated',
-      user: { id: '1', name: 'Анна', email: 'anna@example.com' },
+      user: {
+        id: '1',
+        name: 'Анна',
+        email: 'anna@example.com',
+        role: 'user' as const,
+      },
       session: { mutate, check: vi.fn() },
     } as SessionState & {
       session: {
@@ -25,7 +30,12 @@ vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 beforeEach(() => {
   mutate.mockReset();
   auth.status = 'authenticated';
-  auth.user = { id: '1', name: 'Анна', email: 'anna@example.com' };
+  auth.user = {
+    id: '1',
+    name: 'Анна',
+    email: 'anna@example.com',
+    role: 'user' as const,
+  };
   auth.error = undefined;
 });
 function edit() {
@@ -66,6 +76,7 @@ it('trims Unicode names and disables saving while pending', async () => {
           id: '1',
           name: '👩'.repeat(50),
           email: 'anna@example.com',
+          role: 'user' as const,
         };
         resolve();
       };

@@ -12,9 +12,12 @@ it('reconnects in Strict Mode and removes browser listeners on unmount', async (
   const close = vi
     .spyOn(BrowserCoordination.prototype, 'close')
     .mockImplementation(() => {});
-  const call = vi
-    .spyOn(AuthAPI.prototype, 'call')
-    .mockResolvedValue({ id: '1', name: 'Анна', email: 'anna@example.com' });
+  const call = vi.spyOn(AuthAPI.prototype, 'call').mockResolvedValue({
+    id: '1',
+    name: 'Анна',
+    email: 'anna@example.com',
+    role: 'user' as const,
+  });
   const windowAdd = vi.spyOn(window, 'addEventListener');
   const windowRemove = vi.spyOn(window, 'removeEventListener');
   const documentAdd = vi.spyOn(document, 'addEventListener');

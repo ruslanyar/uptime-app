@@ -4,7 +4,6 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
-import { randomBytes } from 'node:crypto';
 import https from 'node:https';
 import http from 'node:http';
 import net from 'node:net';
@@ -19,7 +18,9 @@ const httpsFrontendPort = process.env.E2E_HTTPS_FRONTEND_PORT;
 const httpsApiPort = process.env.E2E_HTTPS_HTTP_ADDR.split(':').at(-1);
 const readyURL = new URL(process.env.E2E_READY_URL);
 const temporary = await mkdtemp(join(tmpdir(), 'uptime-frontend-e2e-'));
-const database = `frontend_e2e_${randomBytes(8).toString('hex')}`;
+const database = process.env.E2E_DATABASE_NAME;
+if (!/^frontend_e2e_[a-f0-9]{16}$/.test(database ?? ''))
+  throw new Error('E2E_DATABASE_NAME must identify a disposable test database');
 const children = [];
 const commands = new Set();
 const servers = [];

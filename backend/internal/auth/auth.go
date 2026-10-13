@@ -27,6 +27,7 @@ type User struct {
 	Name      string `json:"name" binding:"required"`
 	Email     string `json:"email" binding:"required"`
 	AvatarURL string `json:"avatar_url,omitempty"`
+	Role      string `json:"role" binding:"required" enums:"user,admin"`
 }
 type Account struct {
 	User
@@ -145,7 +146,7 @@ func (s *Service) Register(ctx context.Context, name, email, password string) (R
 	if e != nil {
 		return Result{}, e
 	}
-	u := User{ID: NewID(), Name: name, Email: email}
+	u := User{ID: NewID(), Name: name, Email: email, Role: "user"}
 	session := Session{NewID(), u.ID, time.Now().Add(SessionTTL)}
 	raw, hash, e := refresh()
 	if e != nil {

@@ -2,6 +2,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  role: 'user' | 'admin';
   avatar_url?: string;
 };
 export type Profile = { name: string; avatar?: File; remove_avatar?: boolean };
@@ -49,7 +50,8 @@ function user(value: unknown): User {
   if (
     typeof v.id !== 'string' ||
     typeof v.name !== 'string' ||
-    typeof v.email !== 'string'
+    typeof v.email !== 'string' ||
+    (v.role !== 'user' && v.role !== 'admin')
   )
     throw new AuthError('protocol');
   if (
@@ -64,6 +66,7 @@ function user(value: unknown): User {
     id: v.id,
     name: v.name,
     email: v.email,
+    role: v.role,
     ...(v.avatar_url ? { avatar_url: v.avatar_url as string } : {}),
   };
 }

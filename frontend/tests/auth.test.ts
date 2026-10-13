@@ -3,7 +3,12 @@ import { apiOrigin, AuthAPI, AuthError, errorMessage } from '@/lib/auth/api';
 import { validate } from '@/lib/auth/validation';
 import { Session } from '@/lib/auth/session';
 
-const user = { id: '1', name: 'Иван', email: 'ivan@example.com' };
+const user = {
+  id: '1',
+  name: 'Иван',
+  email: 'ivan@example.com',
+  role: 'user' as const,
+};
 const unauthorized = () => Promise.reject(new AuthError('http', 401));
 const coordination = () => {
   const lockSpy = vi.fn();
