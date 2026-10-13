@@ -96,6 +96,11 @@ export function Dashboard() {
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {user.role === 'admin' && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/users">Админка</Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/account">
                 <UserRound aria-hidden="true" />

@@ -26,6 +26,7 @@ docs/
 ## Гайды
 
 - [Миграции и генерация SQL](guides/backend/migrations.md).
+- [Назначение администратора](guides/backend/administration.md).
 - [Проверки backend и браузерная проверка cookies/CORS](guides/backend/testing.md).
 - Запуск и проверки frontend — в [README frontend](../frontend/README.md).
 
@@ -37,6 +38,7 @@ docs/
 - [Размещение изменений backend](rules/backend/architecture.md).
 - [Конфигурация backend](rules/backend/configuration.md).
 - [Авторизация](rules/backend/authentication.md).
+- [Администрирование пользователей](rules/backend/administration.md).
 - [Профиль и аватары](rules/backend/profile.md).
 - [Мониторы](rules/backend/monitors.md).
 - HTTP-контракт — в [README backend](../backend/README.md#http-контракт).

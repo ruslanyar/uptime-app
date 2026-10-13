@@ -6,6 +6,7 @@ import (
 	"uptime-app/backend/internal/avatar"
 
 	"uptime-app/backend/internal/config"
+	admincontroller "uptime-app/backend/internal/controllers/admin"
 	authcontroller "uptime-app/backend/internal/controllers/auth"
 	healthcontroller "uptime-app/backend/internal/controllers/health"
 	monitorcontroller "uptime-app/backend/internal/controllers/monitor"
@@ -13,9 +14,12 @@ import (
 
 type Service = authcontroller.Service
 
-func New(service Service, monitors monitorcontroller.Service, ready healthcontroller.Check, cfg config.Config) http.Handler {
+func New(service Service, monitors monitorcontroller.Service, admins admincontroller.Service, ready healthcontroller.Check, cfg config.Config) http.Handler {
 	controller := authcontroller.New(service, cfg)
 	mux := http.NewServeMux()
+	adminController := admincontroller.New(service, admins, cfg.AvatarDir)
+	mux.HandleFunc("GET /api/v1/admin/users", adminController.List)
+	mux.HandleFunc("DELETE /api/v1/admin/users/{id}", adminController.Delete)
 	mux.HandleFunc("GET /api/v1/health/ready", healthcontroller.New(ready).Ready)
 	monitorController := monitorcontroller.New(service, monitors)
 	mux.HandleFunc("POST /api/v1/monitors", monitorController.Create)

@@ -58,12 +58,17 @@ API не применяет миграции автоматически. Тре�
 | `GET /monitors/favicon?url=...` | Access token; URL сайта | `200`, изображение; `204`, если иконка недоступна |
 | `PUT /monitors/{id}` | Access token; UUID; JSON `url`, `interval_seconds` | `200`, `Monitor` |
 | `DELETE /monitors/{id}` | Access token; UUID | `204`, без тела |
+| `GET /admin/users?page=1` | Access token; роль admin | `200`, `{users: AdminUser[], total, page, page_size}` |
+| `DELETE /admin/users/{id}` | Access token; роль admin; UUID | `204`, без тела |
 
-`User` содержит `id`, `name`, `email` и необязательный `avatar_url`.
+`User` содержит `id`, `name`, `email`, `role` (`user` или `admin`) и необязательный `avatar_url`.
+`AdminUser` содержит `id`, `name`, `email`, `role`. Список пользователей отсортирован
+по email и ID, размер страницы — 25. `page` по умолчанию 1, целое от 1 до 2147483647;
+пустая или некорректная страница — `400`, за пределами списка — пустой массив.
 `Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`.
 Readiness проверяет связь с PostgreSQL с таймаутом в одну секунду, возвращает
 `Cache-Control: no-store`; миграции и пользовательские сценарии не проверяет.
-Ответы контроллеров авторизации, профиля и мониторов имеют `Cache-Control: no-store`.
+Ответы контроллеров авторизации, профиля, мониторов и админки имеют `Cache-Control: no-store`.
 Токены в JSON не возвращаются; параметры cookies описаны в
 [авторизации](../docs/rules/backend/authentication.md), кеширование изображений —
 в [профиле и аватарах](../docs/rules/backend/profile.md).
@@ -80,6 +85,11 @@ JSON-запросы требуют `Content-Type: application/json`: прини�
 Ошибка: `{error:{code,message}}`. Статусы: `400` некорректный запрос,
 `401` неверные данные/токен, `403` Origin/CSRF, `404` монитор не найден,
 `409` занятый email или URL монитора, `413` превышен лимит multipart, `500` ошибка сервера.
+Административные маршруты дополнительно возвращают `403 forbidden` для обычного
+пользователя, `404 user_not_found` для отсутствующей цели удаления и
+`409 user_protected` при попытке удалить администратора. Удаление аккаунта
+безвозвратно удаляет его мониторы и сессии. Назначение роли и правила —
+в [гайде администрирования](../docs/guides/backend/administration.md).
 Ответы публичного маршрута аватаров с ошибкой `404` не используют JSON-конверт.
 
 На каждом POST, PUT и DELETE требуется `X-CSRF-Protection: 1`, включая CLI без Origin.

@@ -23,7 +23,7 @@ func New(pool *pgxpool.Pool) *Store { return &Store{pool, sqlc.New(pool)} }
 func uuid(id string) pgtype.UUID    { var u pgtype.UUID; _ = u.Scan(id); return u }
 func id(u pgtype.UUID) string       { v, _ := u.Value(); return v.(string) }
 func user(u sqlc.User) auth.User {
-	return auth.User{ID: id(u.ID), Name: u.Name, Email: u.Email, AvatarURL: u.AvatarUrl}
+	return auth.User{ID: id(u.ID), Name: u.Name, Email: u.Email, AvatarURL: u.AvatarUrl, Role: u.Role}
 }
 func storageError(e error) error {
 	if errors.Is(e, pgx.ErrNoRows) {

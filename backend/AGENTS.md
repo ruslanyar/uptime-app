@@ -6,6 +6,7 @@
 - `internal/app/`: application wiring, connection pool and HTTP lifecycle.
 - `internal/auth/`, `internal/config/`: authentication service and configuration.
 - `internal/controllers/auth/`: separate HTTP authentication controllers.
+- `internal/admin/`, `internal/controllers/admin/`: user administration and HTTP controllers; `cmd/admin/`: role assignment command.
 - `internal/httpapi/`: route wiring, CORS/CSRF middleware and shared JSON responses.
 - `internal/storage/postgres/`: repository, SQL queries and committed sqlc-generated package.
 - `migrations/`: numbered Tern SQL files, also used as the sqlc schema source.
