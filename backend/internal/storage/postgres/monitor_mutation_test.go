@@ -37,7 +37,7 @@ func TestMonitorMutationRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.CreatedAt, m.UpdatedAt = old, old
-	h := httpapi.New(a, s, config.Config{AllowedOrigins: map[string]bool{"https://client.example": true}})
+	h := httpapi.New(a, s, nil, config.Config{AllowedOrigins: map[string]bool{"https://client.example": true}})
 	call := func(method, id, token, csrf, origin, body, media string, bearer bool) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(method, "/api/v1/monitors/"+id, strings.NewReader(body))

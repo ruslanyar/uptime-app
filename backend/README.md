@@ -45,6 +45,7 @@ API не применяет миграции автоматически. Тре�
 
 | Метод и путь | Вход | Ответ |
 | --- | --- | --- |
+| `GET /health/ready` | Без авторизации | `200`, `{status:"ready"}`; `503`, `{status:"not_ready"}` |
 | `POST /auth/register` | JSON `name`, `email`, `password` | `201`, `{user: User}`, две cookies |
 | `POST /auth/login` | JSON `email`, `password` | `200`, `{user: User}`, две cookies |
 | `POST /auth/refresh` | Refresh-cookie | `200`, `{user: User}`, две cookies |
@@ -60,6 +61,8 @@ API не применяет миграции автоматически. Тре�
 
 `User` содержит `id`, `name`, `email` и необязательный `avatar_url`.
 `Monitor` содержит `id`, `url`, `interval_seconds`, `created_at`, `updated_at`.
+Readiness проверяет связь с PostgreSQL с таймаутом в одну секунду, возвращает
+`Cache-Control: no-store`; миграции и пользовательские сценарии не проверяет.
 Ответы контроллеров авторизации, профиля и мониторов имеют `Cache-Control: no-store`.
 Токены в JSON не возвращаются; параметры cookies описаны в
 [авторизации](../docs/rules/backend/authentication.md), кеширование изображений —

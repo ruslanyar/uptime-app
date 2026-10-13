@@ -65,6 +65,13 @@ definitions:
     - name
     - password
     type: object
+  healthcontroller.Status:
+    properties:
+      status:
+        type: string
+    required:
+    - status
+    type: object
   monitor.Monitor:
     properties:
       created_at:
@@ -474,6 +481,39 @@ paths:
       summary: Get an avatar
       tags:
       - avatars
+  /health/ready:
+    get:
+      description: Public readiness check. Checks PostgreSQL connectivity within one
+        second; does not validate migrations or application workflows. Requests with
+        Origin still require an allowed origin. Responses are not cached and contain
+        no dependency error details.
+      operationId: healthReady
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ready
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/healthcontroller.Status'
+        "403":
+          description: Origin rejected
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Not ready
+          headers:
+            Cache-Control:
+              description: no-store
+              type: string
+          schema:
+            $ref: '#/definitions/healthcontroller.Status'
+      summary: Check API readiness
+      tags:
+      - health
   /monitors:
     get:
       description: 'Accepts access_token cookie or Authorization: Bearer JWT. A present
