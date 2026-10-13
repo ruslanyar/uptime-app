@@ -33,7 +33,7 @@ func TestBrowserCrossSite(t *testing.T) {
 	}
 	frontendURL := "https://frontend.auth-client.test:" + frontendPort
 	cfg := config.Config{AllowedOrigins: map[string]bool{frontendURL: true}, CookieSecure: true, CookieSameSite: http.SameSiteNoneMode}
-	api := httptest.NewTLSServer(httpapi.New(service, monitor.NewService(postgres.New(pool)), cfg))
+	api := httptest.NewTLSServer(httpapi.New(service, monitor.NewService(postgres.New(pool)), nil, cfg))
 	defer api.Close()
 	_, apiPort, e := net.SplitHostPort(api.Listener.Addr().String())
 	if e != nil {

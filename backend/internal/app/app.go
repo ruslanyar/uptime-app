@@ -34,7 +34,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	if e != nil {
 		return e
 	}
-	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(service, monitor.NewService(postgres.New(pool)), cfg), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	server := &http.Server{Addr: cfg.HTTPAddr, Handler: httpapi.New(service, monitor.NewService(postgres.New(pool)), pool.Ping, cfg), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	// Let the server goroutine finish even when shutdown stops waiting on done.
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()

@@ -500,6 +500,51 @@
                 }
             }
         },
+        "/health/ready": {
+            "get": {
+                "description": "Public readiness check. Checks PostgreSQL connectivity within one second; does not validate migrations or application workflows. Requests with Origin still require an allowed origin. Responses are not cached and contain no dependency error details.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Check API readiness",
+                "operationId": "healthReady",
+                "responses": {
+                    "200": {
+                        "description": "Ready",
+                        "schema": {
+                            "$ref": "#/definitions/healthcontroller.Status"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Origin rejected",
+                        "schema": {
+                            "$ref": "#/definitions/response.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Not ready",
+                        "schema": {
+                            "$ref": "#/definitions/healthcontroller.Status"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "no-store"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/monitors": {
             "get": {
                 "security": [
@@ -981,6 +1026,17 @@
                     "type": "string",
                     "maxLength": 128,
                     "minLength": 15
+                }
+            }
+        },
+        "healthcontroller.Status": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string"
                 }
             }
         },

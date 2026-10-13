@@ -15,7 +15,7 @@ import (
 func TestMonitorRoute(t *testing.T) {
 	ctx, pool, a, _ := setup(t)
 	u := register(t, ctx, a)
-	h := httpapi.New(a, monitor.NewService(postgres.New(pool)), config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}})
+	h := httpapi.New(a, monitor.NewService(postgres.New(pool)), nil, config.Config{AllowedOrigins: map[string]bool{"http://localhost:3000": true}})
 	post := func(token, csrf, origin, body string, header *string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/api/v1/monitors", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
@@ -92,7 +92,7 @@ func TestMonitorListRoute(t *testing.T) {
 		t.Fatal(e)
 	}
 	s := monitor.NewService(postgres.New(pool))
-	h := httpapi.New(a, s, config.Config{})
+	h := httpapi.New(a, s, nil, config.Config{})
 	get := func(token string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", "/api/v1/monitors", nil)
 		if token != "" {

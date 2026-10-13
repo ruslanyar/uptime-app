@@ -7,14 +7,16 @@ import (
 
 	"uptime-app/backend/internal/config"
 	authcontroller "uptime-app/backend/internal/controllers/auth"
+	healthcontroller "uptime-app/backend/internal/controllers/health"
 	monitorcontroller "uptime-app/backend/internal/controllers/monitor"
 )
 
 type Service = authcontroller.Service
 
-func New(service Service, monitors monitorcontroller.Service, cfg config.Config) http.Handler {
+func New(service Service, monitors monitorcontroller.Service, ready healthcontroller.Check, cfg config.Config) http.Handler {
 	controller := authcontroller.New(service, cfg)
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/health/ready", healthcontroller.New(ready).Ready)
 	monitorController := monitorcontroller.New(service, monitors)
 	mux.HandleFunc("POST /api/v1/monitors", monitorController.Create)
 	mux.HandleFunc("GET /api/v1/monitors", monitorController.List)
