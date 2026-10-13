@@ -50,6 +50,14 @@ name создаёт отдельный набор контейнеров и да
 
 Проверка синтаксиса launcher: `bash -n scripts/dev.sh`.
 
+## Хуки Codex
+
+Конфигурация — [.codex/hooks.json](.codex/hooks.json),
+обработчики и [инструкции](.codex/hooks/README.md) — в `.codex/hooks/`.
+Для активации подтвердите доверие через `/hooks` в Codex CLI.
+
+Проверка из корня: `node --test .codex/hooks/codex-hooks.test.mjs`.
+
 - [Общая документация](docs/README.md)
 - [Backend: запуск, API и проверки](backend/README.md)
 - [Frontend: запуск и разработка](frontend/README.md)

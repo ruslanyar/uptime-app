@@ -17,7 +17,9 @@ Plans are task documents for defining work and tracking completion, not project 
 
 Keep documentation actionable for agents: commands, constraints, validation, troubleshooting, and rules that affect implementation. Do not add feature inventories, change history, completed-test reports, or rationale without an actionable consequence. Record the context and consequences of lasting architectural decisions in `docs/decisions/` as ADRs, with current implementation constraints in `docs/rules/`. Use code and configuration as the source of truth for versions and implementation details; avoid duplicating them in prose.
 
-Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document any new test tooling, commands, or configuration in the relevant project README.
+Keep READMEs concise: include only essential setup, usage, and validation commands, with links to detailed instructions. Put necessary operational details in the relevant guide or alongside the tooling; do not repeat implementation details in READMEs.
+
+Run the checks specified in each affected project's guide. No coverage threshold currently exists in either project. Document new test tooling, commands, or configuration briefly in the relevant project README, linking to details when needed.
 
 ## New project tasks
 
