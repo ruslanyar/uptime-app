@@ -9,6 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
+import { MonitorStatus } from '@/components/monitor-status';
 import { MonitorForm } from '@/components/monitor-form';
 import { SiteIcon } from '@/components/site-icon';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,9 @@ export function Monitors({
   const addButton = useRef<HTMLButtonElement | null>(null);
   const cancelDelete = useRef<HTMLButtonElement | null>(null);
   const deleting = useRef(false);
+  const reads = useRef<{ mutation: boolean; cancel?: () => void }>({
+    mutation: false,
+  });
   const [deleteError, setDeleteError] = useState<unknown>();
 
   useEffect(() => {
@@ -63,29 +67,56 @@ export function Monitors({
   }, [editor, pending, state.loading]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    // Abort alone cannot prevent an already resolved request from updating a stale screen.
+    const readState = reads.current;
     let active = true;
+    let busy = false;
+    let refreshOnFinish = false;
+    let controller: AbortController | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const clearTimer = () => {
+      clearTimeout(timer);
+    };
+    const schedule = () => {
+      clearTimer();
+      if (active && document.visibilityState !== 'hidden')
+        timer = setTimeout(() => void load(), 15_000);
+    };
     async function load() {
+      if (!active || busy) return;
+      if (readState.mutation || document.visibilityState === 'hidden') {
+        schedule();
+        return;
+      }
+      clearTimer();
+      busy = true;
+      const request = new AbortController();
+      controller = request;
+      const cancelRead = () => request.abort();
+      readState.cancel = cancelRead;
+      const currentRequest = () =>
+        active && !request.signal.aborted && !readState.mutation;
       try {
         let items: Monitor[];
         try {
-          items = await api.list(controller.signal);
+          items = await api.list(request.signal);
         } catch (error) {
-          if (!(error instanceof AuthError) || error.status !== 401)
+          if (
+            !currentRequest() ||
+            !(error instanceof AuthError) ||
+            error.status !== 401
+          )
             throw error;
-          // Only the read can be retried, and only while the same user remains authenticated.
           await session.check();
           const current = session.snapshot();
           if (
-            !active ||
+            !currentRequest() ||
             current.status !== 'authenticated' ||
             current.user?.id !== userID
           )
             throw error;
-          items = await api.list(controller.signal);
+          items = await api.list(request.signal);
         }
-        if (active) {
+        if (currentRequest()) {
           setState({ items, loading: false });
           setEditor((current) =>
             current?.mode === 'delete' &&
@@ -95,14 +126,33 @@ export function Monitors({
           );
         }
       } catch (error) {
-        if (active)
+        if (currentRequest())
           setState((previous) => ({ ...previous, loading: false, error }));
+      } finally {
+        busy = false;
+        if (controller === request) controller = undefined;
+        if (readState.cancel === cancelRead) readState.cancel = undefined;
+        if (refreshOnFinish && active) {
+          refreshOnFinish = false;
+          void load();
+        } else schedule();
       }
     }
+    function visibilityChanged() {
+      if (document.visibilityState === 'hidden') {
+        clearTimer();
+        controller?.abort();
+      } else if (busy) refreshOnFinish = true;
+      else void load();
+    }
     void load();
+    document.addEventListener('visibilitychange', visibilityChanged);
     return () => {
       active = false;
-      controller.abort();
+      clearTimer();
+      controller?.abort();
+      readState.cancel = undefined;
+      document.removeEventListener('visibilitychange', visibilityChanged);
     };
   }, [api, session, userID, revision]);
 
@@ -113,6 +163,8 @@ export function Monitors({
 
   async function save(input: MonitorInput) {
     if (!editor || editor.mode === 'delete') return;
+    reads.current.mutation = true;
+    reads.current.cancel?.();
     setPending(true);
     onRequestState?.('pending');
     let failed = false;
@@ -146,6 +198,7 @@ export function Monitors({
       failed = true;
       throw error;
     } finally {
+      reads.current.mutation = false;
       setPending(false);
       onRequestState?.(
         failed && session.snapshot().status === 'error' ? 'failed' : 'idle',
@@ -156,6 +209,8 @@ export function Monitors({
   async function remove() {
     if (editor?.mode !== 'delete' || deleting.current || state.loading) return;
     deleting.current = true;
+    reads.current.mutation = true;
+    reads.current.cancel?.();
     setPending(true);
     setDeleteError(undefined);
     onRequestState?.('pending');
@@ -177,6 +232,7 @@ export function Monitors({
       setDeleteError(error);
     } finally {
       deleting.current = false;
+      reads.current.mutation = false;
       setPending(false);
       onRequestState?.(
         failed && session.snapshot().status === 'error' ? 'failed' : 'idle',
@@ -201,7 +257,7 @@ export function Monitors({
             Ваши сайты
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Сайты и интервалы опроса. Проверки доступности скоро появятся.
+            Доступность сайтов по результатам последних HTTP-проверок.
           </p>
         </div>
         <div className="flex gap-2">
@@ -290,9 +346,7 @@ export function Monitors({
                       <p className="text-sm font-medium wrap-anywhere">
                         {item.url}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Точка мониторинга создана
-                      </p>
+                      <MonitorStatus monitoring={item.monitoring} />
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-4 sm:justify-end lg:shrink-0">

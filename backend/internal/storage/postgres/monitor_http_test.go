@@ -41,7 +41,7 @@ func TestMonitorRoute(t *testing.T) {
 	}
 	var fields map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &fields)
-	if len(fields) != 5 {
+	if len(fields) != 6 || m.Monitoring.Status != "unknown" || m.Monitoring.LastCheck != nil || m.Monitoring.NextCheckAt.IsZero() {
 		t.Fatal(fields)
 	}
 	if w = post(u.AccessToken, "1", "", body, nil); w.Code != 409 || !strings.Contains(w.Body.String(), "monitor_conflict") {

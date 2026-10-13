@@ -2,10 +2,88 @@ import { apiOrigin, AuthError } from '@/lib/auth/api';
 import { validateMonitor, type MonitorInput } from './validation';
 import { rasterizeIcon } from './rasterize-icon';
 
+export type CheckErrorCode =
+  | 'http_status'
+  | 'dns'
+  | 'connection'
+  | 'tls'
+  | 'timeout'
+  | 'redirect'
+  | 'blocked_address'
+  | 'network';
+export type Monitoring = {
+  status: 'unknown' | 'up' | 'down' | 'blocked';
+  last_check: {
+    checked_at: string;
+    http_status: number | null;
+    response_time_ms: number | null;
+    error_code: CheckErrorCode | null;
+  } | null;
+  next_check_at: string;
+  is_stale: boolean;
+};
+
+function monitoring(value: unknown): Monitoring {
+  if (!value || typeof value !== 'object') throw new AuthError('protocol');
+  const v = value as Record<string, unknown>;
+  if (
+    typeof v.status !== 'string' ||
+    !['unknown', 'up', 'down', 'blocked'].includes(v.status) ||
+    typeof v.next_check_at !== 'string' ||
+    !Number.isFinite(Date.parse(v.next_check_at)) ||
+    typeof v.is_stale !== 'boolean'
+  )
+    throw new AuthError('protocol');
+  if (v.status === 'unknown') {
+    if (v.last_check !== null || v.is_stale) throw new AuthError('protocol');
+  } else {
+    if (!v.last_check || typeof v.last_check !== 'object')
+      throw new AuthError('protocol');
+    const r = v.last_check as Record<string, unknown>;
+    if (
+      typeof r.checked_at !== 'string' ||
+      !Number.isFinite(Date.parse(r.checked_at))
+    )
+      throw new AuthError('protocol');
+    const hasHTTP =
+      typeof r.http_status === 'number' &&
+      Number.isInteger(r.http_status) &&
+      r.http_status >= 100 &&
+      r.http_status <= 599 &&
+      typeof r.response_time_ms === 'number' &&
+      Number.isSafeInteger(r.response_time_ms) &&
+      r.response_time_ms >= 0;
+    const noHTTP = r.http_status === null && r.response_time_ms === null;
+    const success =
+      hasHTTP &&
+      (r.http_status as number) >= 200 &&
+      (r.http_status as number) <= 299;
+    const valid =
+      v.status === 'up'
+        ? success && r.error_code === null
+        : v.status === 'blocked'
+          ? noHTTP && r.error_code === 'blocked_address'
+          : r.error_code === 'http_status'
+            ? hasHTTP && !success
+            : noHTTP &&
+              [
+                'dns',
+                'connection',
+                'tls',
+                'timeout',
+                'redirect',
+                'network',
+              ].includes(typeof r.error_code === 'string' ? r.error_code : '');
+    if (!valid) throw new AuthError('protocol');
+  }
+  return value as Monitoring;
+}
+
 export type Monitor = MonitorInput & {
   id: string;
   created_at: string;
   updated_at: string;
+  monitoring: Monitoring;
 };
 
 function monitor(value: unknown): Monitor {
@@ -28,6 +106,7 @@ function monitor(value: unknown): Monitor {
     interval_seconds: v.interval_seconds,
     created_at: v.created_at,
     updated_at: v.updated_at,
+    monitoring: monitoring(v.monitoring),
   };
 }
 

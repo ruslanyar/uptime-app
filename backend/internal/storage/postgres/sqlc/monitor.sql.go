@@ -11,10 +11,86 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimMonitorChecks = `-- name: ClaimMonitorChecks :many
+WITH ready AS (
+ SELECT id FROM monitors
+ WHERE next_check_at <= now() AND (lease_until IS NULL OR lease_until <= now())
+ ORDER BY next_check_at, id
+ LIMIT $1
+ FOR UPDATE SKIP LOCKED
+)
+UPDATE monitors m
+SET lease_token = gen_random_uuid(), lease_until = now() + interval '30 seconds'
+FROM ready WHERE m.id = ready.id
+RETURNING m.id, m.url, m.lease_token
+`
+
+type ClaimMonitorChecksRow struct {
+	ID         pgtype.UUID
+	Url        string
+	LeaseToken pgtype.UUID
+}
+
+func (q *Queries) ClaimMonitorChecks(ctx context.Context, batchSize int32) ([]ClaimMonitorChecksRow, error) {
+	rows, err := q.db.Query(ctx, claimMonitorChecks, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClaimMonitorChecksRow
+	for rows.Next() {
+		var i ClaimMonitorChecksRow
+		if err := rows.Scan(&i.ID, &i.Url, &i.LeaseToken); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const completeMonitorCheck = `-- name: CompleteMonitorCheck :execrows
+UPDATE monitors
+SET check_status = $1, checked_at = $2,
+    http_status = $3, response_time_ms = $4,
+    check_error = $5,
+    next_check_at = now() + interval_seconds * interval '1 second',
+    lease_token = NULL, lease_until = NULL
+WHERE id = $6 AND lease_token = $7 AND lease_until > now()
+`
+
+type CompleteMonitorCheckParams struct {
+	CheckStatus    string
+	CheckedAt      pgtype.Timestamptz
+	HttpStatus     pgtype.Int4
+	ResponseTimeMs pgtype.Int8
+	CheckError     pgtype.Text
+	ID             pgtype.UUID
+	LeaseToken     pgtype.UUID
+}
+
+func (q *Queries) CompleteMonitorCheck(ctx context.Context, arg CompleteMonitorCheckParams) (int64, error) {
+	result, err := q.db.Exec(ctx, completeMonitorCheck,
+		arg.CheckStatus,
+		arg.CheckedAt,
+		arg.HttpStatus,
+		arg.ResponseTimeMs,
+		arg.CheckError,
+		arg.ID,
+		arg.LeaseToken,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const createMonitor = `-- name: CreateMonitor :one
 INSERT INTO monitors (id, user_id, url, interval_seconds)
 VALUES ($1, $2, $3, $4)
-RETURNING id, user_id, url, interval_seconds, created_at, updated_at
+RETURNING id, user_id, url, interval_seconds, created_at, updated_at, check_status, checked_at, http_status, response_time_ms, check_error, next_check_at, lease_token, lease_until
 `
 
 type CreateMonitorParams struct {
@@ -39,6 +115,14 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 		&i.IntervalSeconds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CheckStatus,
+		&i.CheckedAt,
+		&i.HttpStatus,
+		&i.ResponseTimeMs,
+		&i.CheckError,
+		&i.NextCheckAt,
+		&i.LeaseToken,
+		&i.LeaseUntil,
 	)
 	return i, err
 }
@@ -61,7 +145,7 @@ func (q *Queries) DeleteMonitor(ctx context.Context, arg DeleteMonitorParams) (i
 }
 
 const listMonitors = `-- name: ListMonitors :many
-SELECT id, user_id, url, interval_seconds, created_at, updated_at FROM monitors WHERE user_id = $1
+SELECT id, user_id, url, interval_seconds, created_at, updated_at, check_status, checked_at, http_status, response_time_ms, check_error, next_check_at, lease_token, lease_until FROM monitors WHERE user_id = $1
 ORDER BY created_at DESC, id DESC
 `
 
@@ -81,6 +165,14 @@ func (q *Queries) ListMonitors(ctx context.Context, userID pgtype.UUID) ([]Monit
 			&i.IntervalSeconds,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CheckStatus,
+			&i.CheckedAt,
+			&i.HttpStatus,
+			&i.ResponseTimeMs,
+			&i.CheckError,
+			&i.NextCheckAt,
+			&i.LeaseToken,
+			&i.LeaseUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -94,9 +186,15 @@ func (q *Queries) ListMonitors(ctx context.Context, userID pgtype.UUID) ([]Monit
 
 const updateMonitor = `-- name: UpdateMonitor :one
 UPDATE monitors
-SET url = $3, interval_seconds = $4, updated_at = now()
+SET url = $3, interval_seconds = $4, updated_at = now(),
+    check_status = CASE WHEN url <> $3 THEN 'unknown' ELSE check_status END,
+    checked_at = CASE WHEN url <> $3 THEN NULL ELSE checked_at END,
+    http_status = CASE WHEN url <> $3 THEN NULL ELSE http_status END,
+    response_time_ms = CASE WHEN url <> $3 THEN NULL ELSE response_time_ms END,
+    check_error = CASE WHEN url <> $3 THEN NULL ELSE check_error END,
+    next_check_at = now(), lease_token = NULL, lease_until = NULL
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, url, interval_seconds, created_at, updated_at
+RETURNING id, user_id, url, interval_seconds, created_at, updated_at, check_status, checked_at, http_status, response_time_ms, check_error, next_check_at, lease_token, lease_until
 `
 
 type UpdateMonitorParams struct {
@@ -121,6 +219,14 @@ func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (M
 		&i.IntervalSeconds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CheckStatus,
+		&i.CheckedAt,
+		&i.HttpStatus,
+		&i.ResponseTimeMs,
+		&i.CheckError,
+		&i.NextCheckAt,
+		&i.LeaseToken,
+		&i.LeaseUntil,
 	)
 	return i, err
 }
